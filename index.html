@@ -1,0 +1,1523 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>活動留言牆</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;700;900&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F6F0E6; --paper-2:#EFE6D6; --ink:#2B2622; --ink-2:#5E554D; --line:#D9CCB8;
+  --seal:#A61B22; --seal-dark:#7E1218;
+  /* 卡片的五種柔和底色：每一種配墨黑字都在 11:1 以上 */
+  --c0:#FBF7F0; --c1:#F4E2D2; --c2:#E2EAD8; --c3:#DCE6EE; --c4:#F3DDE0; --c5:#F2E8C6;
+  --serif:"Noto Serif TC","Songti TC","PMingLiU",serif;
+  --sans:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+.hide{display:none!important}
+
+/* ---------- 共用：印章 ---------- */
+.seal{display:inline-grid;place-items:center;background:var(--seal);color:var(--paper);
+  font-family:var(--serif);font-weight:900;border-radius:4px;flex:none}
+
+/* ---------- 連線狀態 ---------- */
+.live{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2)}
+.live i{width:8px;height:8px;border-radius:50%;background:#B8AC9C}
+.live.on i{background:#3E8E5A;box-shadow:0 0 0 0 rgba(62,142,90,.5);animation:ping 2.4s infinite}
+.live.local i{background:#C58A2B}
+@keyframes ping{0%{box-shadow:0 0 0 0 rgba(62,142,90,.45)}80%,100%{box-shadow:0 0 0 8px rgba(62,142,90,0)}}
+
+/* ============================================================
+   來賓端（手機）
+   ============================================================ */
+#guest{max-width:560px;margin:0 auto;padding:18px 16px calc(40px + env(safe-area-inset-bottom))}
+.g-head{display:flex;align-items:center;gap:12px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.g-head .seal{width:42px;height:42px;font-size:22px}
+.g-head h1{font-family:var(--serif);font-weight:900;font-size:21px;line-height:1.3;margin:0;flex:1}
+.g-sec{padding:20px 0 6px}
+.g-sec h2{font-family:var(--serif);font-size:17px;margin:0 0 4px;display:flex;align-items:baseline;gap:8px}
+.g-sec h2 small{font-family:var(--sans);font-weight:400;font-size:13px;color:var(--ink-2)}
+
+.moods{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+.mood{position:relative;border:1px solid var(--line);background:#FFFCF7;border-radius:16px;padding:10px 0 8px;
+  display:flex;flex-direction:column;align-items:center;gap:2px;touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;transition:transform .08s,border-color .2s,background .2s}
+.mood .e{font-size:34px;line-height:1.15}
+.mood .t{font-size:12px;color:var(--ink-2)}
+.mood:active{transform:scale(.92)}
+.mood.sel{border-color:var(--seal);background:#FBEDEA;box-shadow:inset 0 0 0 1px var(--seal)}
+.mood .combo{position:absolute;top:-9px;right:-6px;background:var(--seal);color:#fff;font-size:12px;font-weight:700;
+  padding:1px 7px;border-radius:999px;opacity:0;transform:scale(.6);transition:opacity .2s,transform .2s;pointer-events:none}
+.mood .combo.show{opacity:1;transform:scale(1)}
+.pop{position:fixed;pointer-events:none;font-size:30px;z-index:50;will-change:transform,opacity}
+.tapnote{font-size:13px;color:var(--ink-2);margin:10px 2px 0;min-height:1.4em}
+
+.field{display:block;margin-top:12px}
+.field label{display:block;font-size:13px;color:var(--ink-2);margin:0 0 6px}
+.field textarea,.field input{width:100%;border:1px solid var(--line);background:#FFFCF7;border-radius:12px;
+  padding:12px 14px;font:inherit;font-size:16px;color:var(--ink);outline:none;transition:border-color .2s}
+.field textarea{min-height:108px;resize:vertical;font-family:var(--serif);line-height:1.6}
+.field textarea:focus,.field input:focus{border-color:var(--seal)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.count{text-align:right;font-size:12px;color:var(--ink-2);margin-top:4px}
+.picked{font-size:13px;color:var(--ink-2);margin-top:12px}
+.picked b{font-size:20px;vertical-align:-2px}
+.send{width:100%;margin-top:14px;border:0;border-radius:14px;background:var(--seal);color:#fff;
+  font-family:var(--serif);font-weight:700;font-size:18px;padding:14px;letter-spacing:.1em;transition:background .2s,opacity .2s}
+.send:active{background:var(--seal-dark)}
+.send:disabled{opacity:.5}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,20px);
+  background:var(--ink);color:var(--paper);padding:12px 20px;border-radius:999px;font-size:15px;opacity:0;
+  transition:opacity .3s,transform .3s;z-index:60;white-space:nowrap;pointer-events:none}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.g-cloud{position:relative;height:300px;margin-top:12px;border:1px solid var(--line);border-radius:16px;background:#FFFCF7;overflow:hidden}
+
+/* ============================================================
+   公布牆（投影）
+   ============================================================ */
+#wall{position:fixed;inset:0;display:grid;grid-template-rows:auto 1fr;overflow:hidden}
+.w-head{display:flex;align-items:center;gap:1.2vw;padding:1.4vh 2.2vw;border-bottom:1px solid var(--line);position:relative;z-index:3;background:var(--paper)}
+.w-head .seal{width:3.6vw;height:3.6vw;min-width:40px;min-height:40px;font-size:max(20px,1.9vw)}
+.w-head h1{font-family:var(--serif);font-weight:900;font-size:max(22px,2.3vw);margin:0;letter-spacing:.04em}
+.w-head .q{font-family:var(--serif);color:var(--ink-2);font-size:max(14px,1.15vw);margin-left:.4vw}
+.w-head .stat{margin-left:auto;display:flex;gap:1.6vw;align-items:center;font-size:max(13px,1vw);color:var(--ink-2)}
+.w-head .stat b{font-family:var(--serif);font-size:1.5em;color:var(--ink);margin-right:.2em}
+.w-body{display:grid;grid-template-columns:1fr 33vw;min-height:0}
+
+/* 留言的舞台：底下有三團很淡的色光緩緩漂移，像在呼吸 */
+#stage{position:relative;overflow:hidden;min-height:0}
+.blob{position:absolute;border-radius:50%;filter:blur(60px);opacity:.55;pointer-events:none}
+.blob.b1{width:46vw;height:46vw;left:-10vw;top:-12vw;background:#F1D9C6;animation:drift1 38s ease-in-out infinite alternate}
+.blob.b2{width:40vw;height:40vw;right:-12vw;bottom:-14vw;background:#D9E4EC;animation:drift2 44s ease-in-out infinite alternate}
+.blob.b3{width:30vw;height:30vw;left:24vw;top:26vh;background:#E6EBD9;animation:drift3 52s ease-in-out infinite alternate}
+@keyframes drift1{to{transform:translate(12vw,10vh) scale(1.15)}}
+@keyframes drift2{to{transform:translate(-10vw,-12vh) scale(.9)}}
+@keyframes drift3{to{transform:translate(-8vw,8vh) scale(1.2)}}
+
+.card{position:absolute;z-index:6}
+.card-in{position:relative;border-radius:22px;padding:1.05em 1.25em .85em;background:var(--c0);
+  box-shadow:0 1px 0 rgba(43,38,34,.04),0 10px 30px -14px rgba(43,38,34,.28);
+  animation:breathe 8s ease-in-out infinite;transform-origin:50% 60%;cursor:pointer}
+.card.c1 .card-in{background:var(--c1)} .card.c2 .card-in{background:var(--c2)}
+.card.c3 .card-in{background:var(--c3)} .card.c4 .card-in{background:var(--c4)} .card.c5 .card-in{background:var(--c5)}
+.card .body{margin:0;font-family:var(--serif);font-weight:700;line-height:1.5;word-break:break-word;white-space:pre-wrap}
+.card .who{margin-top:.45em;font-size:.56em;color:var(--ink-2);font-family:var(--sans);display:flex;gap:.6em;align-items:center}
+.card .who .kw{border:1px solid currentColor;border-radius:999px;padding:0 .7em;font-size:.95em}
+.card .mood-b{position:absolute;top:-.55em;left:-.35em;font-size:1.25em;line-height:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.12))}
+/* 進場：從模糊、縮小的狀態「綻開」 */
+.card.bloom{animation:bloom 1.4s cubic-bezier(.2,.8,.2,1) both}
+.card.fresh .card-in::after{content:"";position:absolute;inset:-6px;border-radius:26px;border:2px solid var(--seal);
+  animation:ring 2.6s ease-out 3 both;pointer-events:none}
+.card.leave{transition:opacity 1.6s ease,transform 1.6s ease,filter 1.6s ease;opacity:0;transform:scale(.92) translateY(-10px);filter:blur(4px)}
+@keyframes bloom{0%{opacity:0;transform:scale(.55);filter:blur(10px)}60%{opacity:1;filter:blur(0)}100%{opacity:1;transform:scale(1);filter:blur(0)}}
+@keyframes breathe{0%,100%{transform:translateY(0) scale(1) rotate(var(--rot,0deg))}50%{transform:translateY(-6px) scale(1.025) rotate(var(--rot,0deg))}}
+@keyframes ring{0%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(1.12)}}
+
+.empty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:var(--ink-2);font-family:var(--serif);font-size:max(18px,1.6vw);line-height:1.9;pointer-events:none}
+.empty b{display:block;font-size:2.2em;color:var(--ink);animation:breathe 6s ease-in-out infinite}
+
+/* 右欄：文字雲 + 心情能量 + QR */
+.aside{display:grid;grid-template-rows:auto 1fr auto;border-left:1px solid var(--line);min-height:0;background:rgba(246,240,230,.92);position:relative;z-index:7}
+.a-title{display:flex;align-items:baseline;justify-content:space-between;padding:1.6vh 1.6vw .4vh;font-family:var(--serif);font-weight:700;font-size:max(15px,1.15vw)}
+.a-title small{font-family:var(--sans);font-weight:400;font-size:.75em;color:var(--ink-2)}
+#wallCloud{position:relative;min-height:0;margin:0 .6vw}
+.a-foot{border-top:1px solid var(--line);padding:1.4vh 1.4vw 1.6vh;display:grid;grid-template-columns:1fr auto;gap:1.2vw;align-items:end}
+.meters{display:grid;grid-template-columns:repeat(5,1fr);gap:.6vh .4vw}
+.meter{display:flex;flex-direction:column;align-items:center;font-size:max(12px,.85vw);color:var(--ink-2)}
+.meter .e{font-size:max(22px,1.9vw);line-height:1.2;display:inline-block}
+.meter b{font-family:var(--serif);color:var(--ink);font-size:1.15em;font-variant-numeric:tabular-nums}
+.meter .e.bump{animation:bump .5s cubic-bezier(.3,1.6,.5,1)}
+@keyframes bump{0%{transform:scale(1)}40%{transform:scale(1.45)}100%{transform:scale(1)}}
+.qr{text-align:center;font-size:max(11px,.8vw);color:var(--ink-2);cursor:zoom-in}
+.qr canvas,.qr img{display:block;width:min(10.5vw,19vh);height:auto;border-radius:6px;margin:0 auto .4vh;box-shadow:0 0 0 1px var(--line)}
+.qr .ph{width:min(10.5vw,19vh);aspect-ratio:1;display:grid;place-items:center;border:1px dashed var(--line);border-radius:6px;padding:6px;line-height:1.5}
+
+/* 文字雲 */
+.cloud .w{position:absolute;white-space:nowrap;font-family:var(--serif);line-height:1;
+  transition:left .9s cubic-bezier(.2,.8,.2,1),top .9s cubic-bezier(.2,.8,.2,1),font-size .9s cubic-bezier(.2,.8,.2,1),opacity .6s}
+.cloud .w.v{writing-mode:vertical-rl;text-orientation:upright;letter-spacing:.06em}
+.cloud .w.enter{opacity:0}
+.cloud .w.glow{animation:glow 2.4s ease-out}
+@keyframes glow{0%{text-shadow:0 0 0 rgba(166,27,34,0)}25%{text-shadow:0 0 18px rgba(166,27,34,.55)}100%{text-shadow:0 0 0 rgba(166,27,34,0)}}
+.cloud-empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--ink-2);font-size:14px;text-align:center;line-height:1.7;padding:12px}
+
+/* 心情 emoji：沒有框，直接在空白處慢慢浮現、緩緩上飄、再淡去 */
+#fx{display:none}
+.sticker{position:absolute;z-index:5;display:flex;align-items:flex-end;gap:.15em;pointer-events:none;white-space:nowrap;opacity:0}
+.sticker .e{font-size:1.6em;line-height:1;filter:drop-shadow(0 4px 6px rgba(43,38,34,.15))}
+.sticker b{font-family:var(--serif);font-weight:900;color:var(--seal);font-size:.62em;font-variant-numeric:tabular-nums;margin-bottom:.1em}
+/* 謝謝大家：最常被按的 emoji 長到很大，搭配全螢幕彩帶 */
+.thanks{position:fixed;left:50%;top:48%;z-index:9;pointer-events:none;text-align:center;transform:translate(-50%,-50%);font-family:var(--serif);font-weight:900;color:var(--seal)}
+.thanks .e{display:block;line-height:1;font-size:12vh;filter:drop-shadow(0 14px 24px rgba(43,38,34,.22))}
+.thanks .t{display:block;margin-top:2vh;font-size:7vh;letter-spacing:.14em;text-shadow:0 0 18px var(--paper),0 0 6px var(--paper),0 0 2px var(--paper)}
+.thanks .s{display:block;margin-top:.6vh;font-size:2.6vh;color:var(--ink-2);font-weight:700;letter-spacing:.06em;text-shadow:0 0 10px var(--paper),0 0 3px var(--paper)}
+.thanks::before{content:"";position:absolute;inset:-8vh -14vw;z-index:-1;background:radial-gradient(closest-side,rgba(246,240,230,.94) 55%,rgba(246,240,230,0))}
+#confetti{position:fixed;inset:0;width:100vw;height:100vh;z-index:8;pointer-events:none}
+
+/* 移除留言的小選單 */
+.menu{position:fixed;z-index:20;background:var(--ink);color:var(--paper);border-radius:12px;padding:6px;display:flex;gap:6px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.menu button{border:0;background:transparent;color:inherit;padding:8px 12px;border-radius:8px;font-size:14px}
+.menu button:hover{background:rgba(255,255,255,.12)}
+.menu .danger{color:#FFB4B4}
+
+/* 牆的工具列：滑鼠動一下才出現，投影時不干擾 */
+.tools{position:fixed;right:16px;bottom:16px;z-index:10;display:flex;gap:8px;opacity:0;transition:opacity .4s;pointer-events:none}
+.tools.show{opacity:1;pointer-events:auto}
+.tools button{border:1px solid var(--line);background:#FFFCF7;border-radius:999px;padding:8px 14px;font-size:13px}
+.tools button.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+
+/* QR 放大 */
+.qrbig{position:fixed;inset:0;z-index:30;background:rgba(246,240,230,.97);display:grid;place-items:center;text-align:center;cursor:zoom-out;font-family:var(--serif)}
+.qrbig canvas,.qrbig img{width:min(70vh,80vw);height:auto;display:block;margin:0 auto 2vh}
+.qrbig p{font-size:3vh;margin:0}
+
+@media (max-aspect-ratio:1/1){
+  /* 直立螢幕或手機誤開牆：上下排 */
+  .w-body{grid-template-columns:1fr;grid-template-rows:1fr 42vh}
+  .aside{border-left:0;border-top:1px solid var(--line)}
+  .w-head .q{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .card-in,.blob,.empty b{animation:none!important}
+}
+</style>
+</head>
+<body>
+
+<!-- ===================== 來賓端 ===================== -->
+<main id="guest" class="hide">
+  <header class="g-head">
+    <span class="seal">厝</span>
+    <h1 id="gTitle"></h1>
+    <span class="live" id="gLive"><i></i><span>連線中</span></span>
+  </header>
+
+  <section class="g-sec">
+    <h2>此刻的心情 <small>可以一直按，牆上會湧現！</small></h2>
+    <div class="moods" id="moods"></div>
+    <p class="tapnote" id="tapNote">點一下選心情，連按就是替自己和隊友加油</p>
+  </section>
+
+  <section class="g-sec">
+    <h2 id="gQuestion"></h2>
+    <form id="form" autocomplete="off">
+      <div class="field">
+        <textarea id="body" maxlength="120" placeholder="一句話、一段感想都好" required></textarea>
+        <div class="count"><span id="bodyCount">0</span> / 120</div>
+      </div>
+      <div class="row2">
+        <div class="field" style="margin-top:4px">
+          <label for="name">您的姓名</label>
+          <input id="name" maxlength="12" placeholder="例如：王小明">
+        </div>
+        <div class="field" style="margin-top:4px">
+          <label for="kw">用一個詞形容今天</label>
+          <input id="kw" maxlength="8" placeholder="例如：好好玩">
+        </div>
+      </div>
+      <p class="picked" id="picked">還沒選心情（上面點一下就會附在留言上）</p>
+      <button class="send" id="send" type="submit">送上牆</button>
+    </form>
+  </section>
+
+  <section class="g-sec">
+    <h2>大家的文字雲 <small>即時更新</small></h2>
+    <div class="g-cloud cloud" id="guestCloud"></div>
+  </section>
+  <div class="toast" id="toast"></div>
+</main>
+
+<!-- ===================== 公布牆 ===================== -->
+<div id="wall" class="hide">
+  <header class="w-head">
+    <span class="seal">厝</span>
+    <h1 id="wTitle"></h1>
+    <span class="q" id="wQuestion"></span>
+    <div class="stat">
+      <span><b id="statMsg">0</b>則留言</span>
+      <span><b id="statReact">0</b>次心情</span>
+      <span class="live" id="wLive"><i></i><span>連線中</span></span>
+    </div>
+  </header>
+  <div class="w-body">
+    <section id="stage">
+      <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+      <div class="empty" id="stageEmpty"><div><b>☺</b>掃右下角的 QR Code<br>寫下你此刻的感受</div></div>
+    </section>
+    <aside class="aside">
+      <div class="a-title">大家的關鍵詞 <small id="cloudNote">同一個詞越多人寫就越大</small></div>
+      <div id="wallCloud" class="cloud"></div>
+      <div class="a-foot">
+        <div class="meters" id="meters"></div>
+        <div class="qr" id="qr" title="點一下放大"></div>
+      </div>
+    </aside>
+  </div>
+  <div id="fx"></div>
+  <canvas id="confetti"></canvas>
+  <div class="tools" id="tools">
+    <button id="tExcel">下載留言 Excel</button>
+    <button id="tImg">下載文字雲圖片</button>
+    <button id="tThanks">謝謝大家</button>
+    <button id="tDemo">示範動畫</button>
+    <button id="tFull">全螢幕</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this.parsedData=[];for(var b=[],d=0,e=this.data.length;e>d;d++){var f=this.data.charCodeAt(d);f>65536?(b[0]=240|(1835008&f)>>>18,b[1]=128|(258048&f)>>>12,b[2]=128|(4032&f)>>>6,b[3]=128|63&f):f>2048?(b[0]=224|(61440&f)>>>12,b[1]=128|(4032&f)>>>6,b[2]=128|63&f):f>128?(b[0]=192|(1984&f)>>>6,b[1]=128|63&f):b[0]=f,this.parsedData=this.parsedData.concat(b)}this.parsedData.length!=this.data.length&&(this.parsedData.unshift(191),this.parsedData.unshift(187),this.parsedData.unshift(239))}function b(a,b){this.typeNumber=a,this.errorCorrectLevel=b,this.modules=null,this.moduleCount=0,this.dataCache=null,this.dataList=[]}function i(a,b){if(void 0==a.length)throw new Error(a.length+"/"+b);for(var c=0;c<a.length&&0==a[c];)c++;this.num=new Array(a.length-c+b);for(var d=0;d<a.length-c;d++)this.num[d]=a[d+c]}function j(a,b){this.totalCount=a,this.dataCount=b}function k(){this.buffer=[],this.length=0}function m(){return"undefined"!=typeof CanvasRenderingContext2D}function n(){var a=!1,b=navigator.userAgent;return/android/i.test(b)&&(a=!0,aMat=b.toString().match(/android ([0-9]\.[0-9])/i),aMat&&aMat[1]&&(a=parseFloat(aMat[1]))),a}function r(a,b){for(var c=1,e=s(a),f=0,g=l.length;g>=f;f++){var h=0;switch(b){case d.L:h=l[f][0];break;case d.M:h=l[f][1];break;case d.Q:h=l[f][2];break;case d.H:h=l[f][3]}if(h>=e)break;c++}if(c>l.length)throw new Error("Too long data");return c}function s(a){var b=encodeURI(a).toString().replace(/\%[0-9a-fA-F]{2}/g,"a");return b.length+(b.length!=a?3:0)}a.prototype={getLength:function(){return this.parsedData.length},write:function(a){for(var b=0,c=this.parsedData.length;c>b;b++)a.put(this.parsedData[b],8)}},b.prototype={addData:function(b){var c=new a(b);this.dataList.push(c),this.dataCache=null},isDark:function(a,b){if(0>a||this.moduleCount<=a||0>b||this.moduleCount<=b)throw new Error(a+","+b);return this.modules[a][b]},getModuleCount:function(){return this.moduleCount},make:function(){this.makeImpl(!1,this.getBestMaskPattern())},makeImpl:function(a,c){this.moduleCount=4*this.typeNumber+17,this.modules=new Array(this.moduleCount);for(var d=0;d<this.moduleCount;d++){this.modules[d]=new Array(this.moduleCount);for(var e=0;e<this.moduleCount;e++)this.modules[d][e]=null}this.setupPositionProbePattern(0,0),this.setupPositionProbePattern(this.moduleCount-7,0),this.setupPositionProbePattern(0,this.moduleCount-7),this.setupPositionAdjustPattern(),this.setupTimingPattern(),this.setupTypeInfo(a,c),this.typeNumber>=7&&this.setupTypeNumber(a),null==this.dataCache&&(this.dataCache=b.createData(this.typeNumber,this.errorCorrectLevel,this.dataList)),this.mapData(this.dataCache,c)},setupPositionProbePattern:function(a,b){for(var c=-1;7>=c;c++)if(!(-1>=a+c||this.moduleCount<=a+c))for(var d=-1;7>=d;d++)-1>=b+d||this.moduleCount<=b+d||(this.modules[a+c][b+d]=c>=0&&6>=c&&(0==d||6==d)||d>=0&&6>=d&&(0==c||6==c)||c>=2&&4>=c&&d>=2&&4>=d?!0:!1)},getBestMaskPattern:function(){for(var a=0,b=0,c=0;8>c;c++){this.makeImpl(!0,c);var d=f.getLostPoint(this);(0==c||a>d)&&(a=d,b=c)}return b},createMovieClip:function(a,b,c){var d=a.createEmptyMovieClip(b,c),e=1;this.make();for(var f=0;f<this.modules.length;f++)for(var g=f*e,h=0;h<this.modules[f].length;h++){var i=h*e,j=this.modules[f][h];j&&(d.beginFill(0,100),d.moveTo(i,g),d.lineTo(i+e,g),d.lineTo(i+e,g+e),d.lineTo(i,g+e),d.endFill())}return d},setupTimingPattern:function(){for(var a=8;a<this.moduleCount-8;a++)null==this.modules[a][6]&&(this.modules[a][6]=0==a%2);for(var b=8;b<this.moduleCount-8;b++)null==this.modules[6][b]&&(this.modules[6][b]=0==b%2)},setupPositionAdjustPattern:function(){for(var a=f.getPatternPosition(this.typeNumber),b=0;b<a.length;b++)for(var c=0;c<a.length;c++){var d=a[b],e=a[c];if(null==this.modules[d][e])for(var g=-2;2>=g;g++)for(var h=-2;2>=h;h++)this.modules[d+g][e+h]=-2==g||2==g||-2==h||2==h||0==g&&0==h?!0:!1}},setupTypeNumber:function(a){for(var b=f.getBCHTypeNumber(this.typeNumber),c=0;18>c;c++){var d=!a&&1==(1&b>>c);this.modules[Math.floor(c/3)][c%3+this.moduleCount-8-3]=d}for(var c=0;18>c;c++){var d=!a&&1==(1&b>>c);this.modules[c%3+this.moduleCount-8-3][Math.floor(c/3)]=d}},setupTypeInfo:function(a,b){for(var c=this.errorCorrectLevel<<3|b,d=f.getBCHTypeInfo(c),e=0;15>e;e++){var g=!a&&1==(1&d>>e);6>e?this.modules[e][8]=g:8>e?this.modules[e+1][8]=g:this.modules[this.moduleCount-15+e][8]=g}for(var e=0;15>e;e++){var g=!a&&1==(1&d>>e);8>e?this.modules[8][this.moduleCount-e-1]=g:9>e?this.modules[8][15-e-1+1]=g:this.modules[8][15-e-1]=g}this.modules[this.moduleCount-8][8]=!a},mapData:function(a,b){for(var c=-1,d=this.moduleCount-1,e=7,g=0,h=this.moduleCount-1;h>0;h-=2)for(6==h&&h--;;){for(var i=0;2>i;i++)if(null==this.modules[d][h-i]){var j=!1;g<a.length&&(j=1==(1&a[g]>>>e));var k=f.getMask(b,d,h-i);k&&(j=!j),this.modules[d][h-i]=j,e--,-1==e&&(g++,e=7)}if(d+=c,0>d||this.moduleCount<=d){d-=c,c=-c;break}}}},b.PAD0=236,b.PAD1=17,b.createData=function(a,c,d){for(var e=j.getRSBlocks(a,c),g=new k,h=0;h<d.length;h++){var i=d[h];g.put(i.mode,4),g.put(i.getLength(),f.getLengthInBits(i.mode,a)),i.write(g)}for(var l=0,h=0;h<e.length;h++)l+=e[h].dataCount;if(g.getLengthInBits()>8*l)throw new Error("code length overflow. ("+g.getLengthInBits()+">"+8*l+")");for(g.getLengthInBits()+4<=8*l&&g.put(0,4);0!=g.getLengthInBits()%8;)g.putBit(!1);for(;;){if(g.getLengthInBits()>=8*l)break;if(g.put(b.PAD0,8),g.getLengthInBits()>=8*l)break;g.put(b.PAD1,8)}return b.createBytes(g,e)},b.createBytes=function(a,b){for(var c=0,d=0,e=0,g=new Array(b.length),h=new Array(b.length),j=0;j<b.length;j++){var k=b[j].dataCount,l=b[j].totalCount-k;d=Math.max(d,k),e=Math.max(e,l),g[j]=new Array(k);for(var m=0;m<g[j].length;m++)g[j][m]=255&a.buffer[m+c];c+=k;var n=f.getErrorCorrectPolynomial(l),o=new i(g[j],n.getLength()-1),p=o.mod(n);h[j]=new Array(n.getLength()-1);for(var m=0;m<h[j].length;m++){var q=m+p.getLength()-h[j].length;h[j][m]=q>=0?p.get(q):0}}for(var r=0,m=0;m<b.length;m++)r+=b[m].totalCount;for(var s=new Array(r),t=0,m=0;d>m;m++)for(var j=0;j<b.length;j++)m<g[j].length&&(s[t++]=g[j][m]);for(var m=0;e>m;m++)for(var j=0;j<b.length;j++)m<h[j].length&&(s[t++]=h[j][m]);return s};for(var c={MODE_NUMBER:1,MODE_ALPHA_NUM:2,MODE_8BIT_BYTE:4,MODE_KANJI:8},d={L:1,M:0,Q:3,H:2},e={PATTERN000:0,PATTERN001:1,PATTERN010:2,PATTERN011:3,PATTERN100:4,PATTERN101:5,PATTERN110:6,PATTERN111:7},f={PATTERN_POSITION_TABLE:[[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70],[6,26,50,74],[6,30,54,78],[6,30,56,82],[6,30,58,86],[6,34,62,90],[6,28,50,72,94],[6,26,50,74,98],[6,30,54,78,102],[6,28,54,80,106],[6,32,58,84,110],[6,30,58,86,114],[6,34,62,90,118],[6,26,50,74,98,122],[6,30,54,78,102,126],[6,26,52,78,104,130],[6,30,56,82,108,134],[6,34,60,86,112,138],[6,30,58,86,114,142],[6,34,62,90,118,146],[6,30,54,78,102,126,150],[6,24,50,76,102,128,154],[6,28,54,80,106,132,158],[6,32,58,84,110,136,162],[6,26,54,82,110,138,166],[6,30,58,86,114,142,170]],G15:1335,G18:7973,G15_MASK:21522,getBCHTypeInfo:function(a){for(var b=a<<10;f.getBCHDigit(b)-f.getBCHDigit(f.G15)>=0;)b^=f.G15<<f.getBCHDigit(b)-f.getBCHDigit(f.G15);return(a<<10|b)^f.G15_MASK},getBCHTypeNumber:function(a){for(var b=a<<12;f.getBCHDigit(b)-f.getBCHDigit(f.G18)>=0;)b^=f.G18<<f.getBCHDigit(b)-f.getBCHDigit(f.G18);return a<<12|b},getBCHDigit:function(a){for(var b=0;0!=a;)b++,a>>>=1;return b},getPatternPosition:function(a){return f.PATTERN_POSITION_TABLE[a-1]},getMask:function(a,b,c){switch(a){case e.PATTERN000:return 0==(b+c)%2;case e.PATTERN001:return 0==b%2;case e.PATTERN010:return 0==c%3;case e.PATTERN011:return 0==(b+c)%3;case e.PATTERN100:return 0==(Math.floor(b/2)+Math.floor(c/3))%2;case e.PATTERN101:return 0==b*c%2+b*c%3;case e.PATTERN110:return 0==(b*c%2+b*c%3)%2;case e.PATTERN111:return 0==(b*c%3+(b+c)%2)%2;default:throw new Error("bad maskPattern:"+a)}},getErrorCorrectPolynomial:function(a){for(var b=new i([1],0),c=0;a>c;c++)b=b.multiply(new i([1,g.gexp(c)],0));return b},getLengthInBits:function(a,b){if(b>=1&&10>b)switch(a){case c.MODE_NUMBER:return 10;case c.MODE_ALPHA_NUM:return 9;case c.MODE_8BIT_BYTE:return 8;case c.MODE_KANJI:return 8;default:throw new Error("mode:"+a)}else if(27>b)switch(a){case c.MODE_NUMBER:return 12;case c.MODE_ALPHA_NUM:return 11;case c.MODE_8BIT_BYTE:return 16;case c.MODE_KANJI:return 10;default:throw new Error("mode:"+a)}else{if(!(41>b))throw new Error("type:"+b);switch(a){case c.MODE_NUMBER:return 14;case c.MODE_ALPHA_NUM:return 13;case c.MODE_8BIT_BYTE:return 16;case c.MODE_KANJI:return 12;default:throw new Error("mode:"+a)}}},getLostPoint:function(a){for(var b=a.getModuleCount(),c=0,d=0;b>d;d++)for(var e=0;b>e;e++){for(var f=0,g=a.isDark(d,e),h=-1;1>=h;h++)if(!(0>d+h||d+h>=b))for(var i=-1;1>=i;i++)0>e+i||e+i>=b||(0!=h||0!=i)&&g==a.isDark(d+h,e+i)&&f++;f>5&&(c+=3+f-5)}for(var d=0;b-1>d;d++)for(var e=0;b-1>e;e++){var j=0;a.isDark(d,e)&&j++,a.isDark(d+1,e)&&j++,a.isDark(d,e+1)&&j++,a.isDark(d+1,e+1)&&j++,(0==j||4==j)&&(c+=3)}for(var d=0;b>d;d++)for(var e=0;b-6>e;e++)a.isDark(d,e)&&!a.isDark(d,e+1)&&a.isDark(d,e+2)&&a.isDark(d,e+3)&&a.isDark(d,e+4)&&!a.isDark(d,e+5)&&a.isDark(d,e+6)&&(c+=40);for(var e=0;b>e;e++)for(var d=0;b-6>d;d++)a.isDark(d,e)&&!a.isDark(d+1,e)&&a.isDark(d+2,e)&&a.isDark(d+3,e)&&a.isDark(d+4,e)&&!a.isDark(d+5,e)&&a.isDark(d+6,e)&&(c+=40);for(var k=0,e=0;b>e;e++)for(var d=0;b>d;d++)a.isDark(d,e)&&k++;var l=Math.abs(100*k/b/b-50)/5;return c+=10*l}},g={glog:function(a){if(1>a)throw new Error("glog("+a+")");return g.LOG_TABLE[a]},gexp:function(a){for(;0>a;)a+=255;for(;a>=256;)a-=255;return g.EXP_TABLE[a]},EXP_TABLE:new Array(256),LOG_TABLE:new Array(256)},h=0;8>h;h++)g.EXP_TABLE[h]=1<<h;for(var h=8;256>h;h++)g.EXP_TABLE[h]=g.EXP_TABLE[h-4]^g.EXP_TABLE[h-5]^g.EXP_TABLE[h-6]^g.EXP_TABLE[h-8];for(var h=0;255>h;h++)g.LOG_TABLE[g.EXP_TABLE[h]]=h;i.prototype={get:function(a){return this.num[a]},getLength:function(){return this.num.length},multiply:function(a){for(var b=new Array(this.getLength()+a.getLength()-1),c=0;c<this.getLength();c++)for(var d=0;d<a.getLength();d++)b[c+d]^=g.gexp(g.glog(this.get(c))+g.glog(a.get(d)));return new i(b,0)},mod:function(a){if(this.getLength()-a.getLength()<0)return this;for(var b=g.glog(this.get(0))-g.glog(a.get(0)),c=new Array(this.getLength()),d=0;d<this.getLength();d++)c[d]=this.get(d);for(var d=0;d<a.getLength();d++)c[d]^=g.gexp(g.glog(a.get(d))+b);return new i(c,0).mod(a)}},j.RS_BLOCK_TABLE=[[1,26,19],[1,26,16],[1,26,13],[1,26,9],[1,44,34],[1,44,28],[1,44,22],[1,44,16],[1,70,55],[1,70,44],[2,35,17],[2,35,13],[1,100,80],[2,50,32],[2,50,24],[4,25,9],[1,134,108],[2,67,43],[2,33,15,2,34,16],[2,33,11,2,34,12],[2,86,68],[4,43,27],[4,43,19],[4,43,15],[2,98,78],[4,49,31],[2,32,14,4,33,15],[4,39,13,1,40,14],[2,121,97],[2,60,38,2,61,39],[4,40,18,2,41,19],[4,40,14,2,41,15],[2,146,116],[3,58,36,2,59,37],[4,36,16,4,37,17],[4,36,12,4,37,13],[2,86,68,2,87,69],[4,69,43,1,70,44],[6,43,19,2,44,20],[6,43,15,2,44,16],[4,101,81],[1,80,50,4,81,51],[4,50,22,4,51,23],[3,36,12,8,37,13],[2,116,92,2,117,93],[6,58,36,2,59,37],[4,46,20,6,47,21],[7,42,14,4,43,15],[4,133,107],[8,59,37,1,60,38],[8,44,20,4,45,21],[12,33,11,4,34,12],[3,145,115,1,146,116],[4,64,40,5,65,41],[11,36,16,5,37,17],[11,36,12,5,37,13],[5,109,87,1,110,88],[5,65,41,5,66,42],[5,54,24,7,55,25],[11,36,12],[5,122,98,1,123,99],[7,73,45,3,74,46],[15,43,19,2,44,20],[3,45,15,13,46,16],[1,135,107,5,136,108],[10,74,46,1,75,47],[1,50,22,15,51,23],[2,42,14,17,43,15],[5,150,120,1,151,121],[9,69,43,4,70,44],[17,50,22,1,51,23],[2,42,14,19,43,15],[3,141,113,4,142,114],[3,70,44,11,71,45],[17,47,21,4,48,22],[9,39,13,16,40,14],[3,135,107,5,136,108],[3,67,41,13,68,42],[15,54,24,5,55,25],[15,43,15,10,44,16],[4,144,116,4,145,117],[17,68,42],[17,50,22,6,51,23],[19,46,16,6,47,17],[2,139,111,7,140,112],[17,74,46],[7,54,24,16,55,25],[34,37,13],[4,151,121,5,152,122],[4,75,47,14,76,48],[11,54,24,14,55,25],[16,45,15,14,46,16],[6,147,117,4,148,118],[6,73,45,14,74,46],[11,54,24,16,55,25],[30,46,16,2,47,17],[8,132,106,4,133,107],[8,75,47,13,76,48],[7,54,24,22,55,25],[22,45,15,13,46,16],[10,142,114,2,143,115],[19,74,46,4,75,47],[28,50,22,6,51,23],[33,46,16,4,47,17],[8,152,122,4,153,123],[22,73,45,3,74,46],[8,53,23,26,54,24],[12,45,15,28,46,16],[3,147,117,10,148,118],[3,73,45,23,74,46],[4,54,24,31,55,25],[11,45,15,31,46,16],[7,146,116,7,147,117],[21,73,45,7,74,46],[1,53,23,37,54,24],[19,45,15,26,46,16],[5,145,115,10,146,116],[19,75,47,10,76,48],[15,54,24,25,55,25],[23,45,15,25,46,16],[13,145,115,3,146,116],[2,74,46,29,75,47],[42,54,24,1,55,25],[23,45,15,28,46,16],[17,145,115],[10,74,46,23,75,47],[10,54,24,35,55,25],[19,45,15,35,46,16],[17,145,115,1,146,116],[14,74,46,21,75,47],[29,54,24,19,55,25],[11,45,15,46,46,16],[13,145,115,6,146,116],[14,74,46,23,75,47],[44,54,24,7,55,25],[59,46,16,1,47,17],[12,151,121,7,152,122],[12,75,47,26,76,48],[39,54,24,14,55,25],[22,45,15,41,46,16],[6,151,121,14,152,122],[6,75,47,34,76,48],[46,54,24,10,55,25],[2,45,15,64,46,16],[17,152,122,4,153,123],[29,74,46,14,75,47],[49,54,24,10,55,25],[24,45,15,46,46,16],[4,152,122,18,153,123],[13,74,46,32,75,47],[48,54,24,14,55,25],[42,45,15,32,46,16],[20,147,117,4,148,118],[40,75,47,7,76,48],[43,54,24,22,55,25],[10,45,15,67,46,16],[19,148,118,6,149,119],[18,75,47,31,76,48],[34,54,24,34,55,25],[20,45,15,61,46,16]],j.getRSBlocks=function(a,b){var c=j.getRsBlockTable(a,b);if(void 0==c)throw new Error("bad rs block @ typeNumber:"+a+"/errorCorrectLevel:"+b);for(var d=c.length/3,e=[],f=0;d>f;f++)for(var g=c[3*f+0],h=c[3*f+1],i=c[3*f+2],k=0;g>k;k++)e.push(new j(h,i));return e},j.getRsBlockTable=function(a,b){switch(b){case d.L:return j.RS_BLOCK_TABLE[4*(a-1)+0];case d.M:return j.RS_BLOCK_TABLE[4*(a-1)+1];case d.Q:return j.RS_BLOCK_TABLE[4*(a-1)+2];case d.H:return j.RS_BLOCK_TABLE[4*(a-1)+3];default:return void 0}},k.prototype={get:function(a){var b=Math.floor(a/8);return 1==(1&this.buffer[b]>>>7-a%8)},put:function(a,b){for(var c=0;b>c;c++)this.putBit(1==(1&a>>>b-c-1))},getLengthInBits:function(){return this.length},putBit:function(a){var b=Math.floor(this.length/8);this.buffer.length<=b&&this.buffer.push(0),a&&(this.buffer[b]|=128>>>this.length%8),this.length++}};var l=[[17,14,11,7],[32,26,20,14],[53,42,32,24],[78,62,46,34],[106,84,60,44],[134,106,74,58],[154,122,86,64],[192,152,108,84],[230,180,130,98],[271,213,151,119],[321,251,177,137],[367,287,203,155],[425,331,241,177],[458,362,258,194],[520,412,292,220],[586,450,322,250],[644,504,364,280],[718,560,394,310],[792,624,442,338],[858,666,482,382],[929,711,509,403],[1003,779,565,439],[1091,857,611,461],[1171,911,661,511],[1273,997,715,535],[1367,1059,751,593],[1465,1125,805,625],[1528,1190,868,658],[1628,1264,908,698],[1732,1370,982,742],[1840,1452,1030,790],[1952,1538,1112,842],[2068,1628,1168,898],[2188,1722,1228,958],[2303,1809,1283,983],[2431,1911,1351,1051],[2563,1989,1423,1093],[2699,2099,1499,1139],[2809,2213,1579,1219],[2953,2331,1663,1273]],o=function(){var a=function(a,b){this._el=a,this._htOption=b};return a.prototype.draw=function(a){function g(a,b){var c=document.createElementNS("http://www.w3.org/2000/svg",a);for(var d in b)b.hasOwnProperty(d)&&c.setAttribute(d,b[d]);return c}var b=this._htOption,c=this._el,d=a.getModuleCount();Math.floor(b.width/d),Math.floor(b.height/d),this.clear();var h=g("svg",{viewBox:"0 0 "+String(d)+" "+String(d),width:"100%",height:"100%",fill:b.colorLight});h.setAttributeNS("http://www.w3.org/2000/xmlns/","xmlns:xlink","http://www.w3.org/1999/xlink"),c.appendChild(h),h.appendChild(g("rect",{fill:b.colorDark,width:"1",height:"1",id:"template"}));for(var i=0;d>i;i++)for(var j=0;d>j;j++)if(a.isDark(i,j)){var k=g("use",{x:String(i),y:String(j)});k.setAttributeNS("http://www.w3.org/1999/xlink","href","#template"),h.appendChild(k)}},a.prototype.clear=function(){for(;this._el.hasChildNodes();)this._el.removeChild(this._el.lastChild)},a}(),p="svg"===document.documentElement.tagName.toLowerCase(),q=p?o:m()?function(){function a(){this._elImage.src=this._elCanvas.toDataURL("image/png"),this._elImage.style.display="block",this._elCanvas.style.display="none"}function d(a,b){var c=this;if(c._fFail=b,c._fSuccess=a,null===c._bSupportDataURI){var d=document.createElement("img"),e=function(){c._bSupportDataURI=!1,c._fFail&&_fFail.call(c)},f=function(){c._bSupportDataURI=!0,c._fSuccess&&c._fSuccess.call(c)};return d.onabort=e,d.onerror=e,d.onload=f,d.src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==",void 0}c._bSupportDataURI===!0&&c._fSuccess?c._fSuccess.call(c):c._bSupportDataURI===!1&&c._fFail&&c._fFail.call(c)}if(this._android&&this._android<=2.1){var b=1/window.devicePixelRatio,c=CanvasRenderingContext2D.prototype.drawImage;CanvasRenderingContext2D.prototype.drawImage=function(a,d,e,f,g,h,i,j){if("nodeName"in a&&/img/i.test(a.nodeName))for(var l=arguments.length-1;l>=1;l--)arguments[l]=arguments[l]*b;else"undefined"==typeof j&&(arguments[1]*=b,arguments[2]*=b,arguments[3]*=b,arguments[4]*=b);c.apply(this,arguments)}}var e=function(a,b){this._bIsPainted=!1,this._android=n(),this._htOption=b,this._elCanvas=document.createElement("canvas"),this._elCanvas.width=b.width,this._elCanvas.height=b.height,a.appendChild(this._elCanvas),this._el=a,this._oContext=this._elCanvas.getContext("2d"),this._bIsPainted=!1,this._elImage=document.createElement("img"),this._elImage.style.display="none",this._el.appendChild(this._elImage),this._bSupportDataURI=null};return e.prototype.draw=function(a){var b=this._elImage,c=this._oContext,d=this._htOption,e=a.getModuleCount(),f=d.width/e,g=d.height/e,h=Math.round(f),i=Math.round(g);b.style.display="none",this.clear();for(var j=0;e>j;j++)for(var k=0;e>k;k++){var l=a.isDark(j,k),m=k*f,n=j*g;c.strokeStyle=l?d.colorDark:d.colorLight,c.lineWidth=1,c.fillStyle=l?d.colorDark:d.colorLight,c.fillRect(m,n,f,g),c.strokeRect(Math.floor(m)+.5,Math.floor(n)+.5,h,i),c.strokeRect(Math.ceil(m)-.5,Math.ceil(n)-.5,h,i)}this._bIsPainted=!0},e.prototype.makeImage=function(){this._bIsPainted&&d.call(this,a)},e.prototype.isPainted=function(){return this._bIsPainted},e.prototype.clear=function(){this._oContext.clearRect(0,0,this._elCanvas.width,this._elCanvas.height),this._bIsPainted=!1},e.prototype.round=function(a){return a?Math.floor(1e3*a)/1e3:a},e}():function(){var a=function(a,b){this._el=a,this._htOption=b};return a.prototype.draw=function(a){for(var b=this._htOption,c=this._el,d=a.getModuleCount(),e=Math.floor(b.width/d),f=Math.floor(b.height/d),g=['<table style="border:0;border-collapse:collapse;">'],h=0;d>h;h++){g.push("<tr>");for(var i=0;d>i;i++)g.push('<td style="border:0;border-collapse:collapse;padding:0;margin:0;width:'+e+"px;height:"+f+"px;background-color:"+(a.isDark(h,i)?b.colorDark:b.colorLight)+';"></td>');g.push("</tr>")}g.push("</table>"),c.innerHTML=g.join("");var j=c.childNodes[0],k=(b.width-j.offsetWidth)/2,l=(b.height-j.offsetHeight)/2;k>0&&l>0&&(j.style.margin=l+"px "+k+"px")},a.prototype.clear=function(){this._el.innerHTML=""},a}();QRCode=function(a,b){if(this._htOption={width:256,height:256,typeNumber:4,colorDark:"#000000",colorLight:"#ffffff",correctLevel:d.H},"string"==typeof b&&(b={text:b}),b)for(var c in b)this._htOption[c]=b[c];"string"==typeof a&&(a=document.getElementById(a)),this._android=n(),this._el=a,this._oQRCode=null,this._oDrawing=new q(this._el,this._htOption),this._htOption.text&&this.makeCode(this._htOption.text)},QRCode.prototype.makeCode=function(a){this._oQRCode=new b(r(a,this._htOption.correctLevel),this._htOption.correctLevel),this._oQRCode.addData(a),this._oQRCode.make(),this._el.title=a,this._oDrawing.draw(this._oQRCode),this.makeImage()},QRCode.prototype.makeImage=function(){"function"==typeof this._oDrawing.makeImage&&(!this._android||this._android>=3)&&this._oDrawing.makeImage()},QRCode.prototype.clear=function(){this._oDrawing.clear()},QRCode.CorrectLevel=d}();
+</script>
+<script>
+'use strict';
+/* ============================================================
+   設定
+   ============================================================ */
+var SUPABASE_URL = 'https://qdpklfsrgdtgbsutckib.supabase.co';
+var SUPABASE_KEY = 'sb_publishable_e1XwlArxGr9KKwOtIsGDwQ_4I17iX4F';
+
+var P = new URLSearchParams(location.search);
+var ROOM = (P.get('room') || 'default').slice(0, 40);
+var IS_WALL = P.has('wall');
+var TITLE = P.get('title') || '2026牽手行厝邊闖關活動';
+var QUESTION = P.get('q') || '此刻，你想說些什麼？';
+
+var MOODS = [
+  { e:'😄', t:'好喜樂' }, { e:'🙌', t:'歡呼' }, { e:'🤩', t:'好好玩' },
+  { e:'🥳', t:'超有成就感' }, { e:'😍', t:'好喜歡' }, { e:'🤗', t:'抱抱' },
+  { e:'😘', t:'飛吻' }, { e:'😉', t:'眨眼' }, { e:'😚', t:'瞇眼親親' }
+];
+var MOOD_SET = new Set(MOODS.map(function(m){ return m.e; }));
+
+function $(id){ return document.getElementById(id); }
+function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+function rand(a, b){ return a + Math.random() * (b - a); }
+function hash(s){ var h = 2166136261; for (var i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function isCJK(s){ return /[㐀-䶿一-鿿]/.test(s); }
+
+/* ============================================================
+   資料層：優先接 Supabase；資料表還沒建好或連不上時，
+   退成「本機示範模式」（同一台電腦的分頁之間用 BroadcastChannel 同步）
+   ============================================================ */
+var Store = {
+  mode: 'connecting',
+  messages: new Map(),      // id → message（不含已移除的）
+  totals: {},               // emoji → 總數
+  handlers: { msg: [], react: [], hide: [], status: [] },
+  on: function(t, f){ this.handlers[t].push(f); },
+  emit: function(t, x){ this.handlers[t].forEach(function(f){ f(x); }); },
+  sorted: function(){ return Array.from(this.messages.values()).sort(function(a, b){ return a.id - b.id; }); }
+};
+var sb = null, bc = null, LKEY = 'wall:' + ROOM + ':';
+
+function acceptMessage(m, fromLive){
+  if (!m || m.hidden || Store.messages.has(m.id)) return;
+  Store.messages.set(m.id, m);
+  Store.emit('msg', { m: m, live: fromLive });
+}
+function acceptReaction(emoji, n){
+  if (!MOOD_SET.has(emoji)) return;
+  Store.totals[emoji] = (Store.totals[emoji] || 0) + n;
+  Store.emit('react', { emoji: emoji, n: n });
+}
+function acceptHide(id){
+  if (!Store.messages.has(id)) return;
+  Store.messages.delete(id);
+  Store.emit('hide', id);
+}
+function setMode(mode){ Store.mode = mode; Store.emit('status', mode); }
+
+async function initStore(){
+  if (window.supabase && window.supabase.createClient){
+    try {
+      sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false } });
+      var r = await sb.from('wall_messages').select('id,name,body,mood,keyword,created_at')
+        .eq('room', ROOM).eq('hidden', false).order('id', { ascending: false }).limit(1000);
+      if (r.error) throw r.error;
+      var t = await sb.from('wall_reaction_totals').select('emoji,total').eq('room', ROOM);
+      if (t.error) throw t.error;
+      r.data.reverse().forEach(function(m){ acceptMessage(m, false); });
+      t.data.forEach(function(row){ Store.totals[row.emoji] = Number(row.total) || 0; });
+      Store.emit('react', null);
+      subscribeCloud();
+      return;
+    } catch (e){
+      console.warn('[留言牆] Supabase 無法使用，改用本機示範模式：', e && (e.message || e.code || e));
+      sb = null;
+    }
+  }
+  initLocal();
+}
+
+function subscribeCloud(){
+  var filter = 'room=eq.' + ROOM;
+  sb.channel('wall-' + ROOM + '-' + Math.random().toString(36).slice(2, 7))
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wall_messages', filter: filter },
+        function(p){ acceptMessage(p.new, true); })
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'wall_messages', filter: filter },
+        function(p){ if (p.new && p.new.hidden) acceptHide(p.new.id); })
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wall_reactions', filter: filter },
+        function(p){ acceptReaction(p.new.emoji, p.new.n || 1); })
+    .subscribe(function(status){
+      if (status === 'SUBSCRIBED'){ setMode('cloud'); resync(); }
+      else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') setMode('cloud-off');
+    });
+  // 即時通道偶爾會斷：每 30 秒補抓一次新留言，回到前景時也補一次
+  setInterval(resync, 30000);
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden) resync(); });
+}
+
+async function resync(){
+  if (!sb) return;
+  var last = 0;
+  Store.messages.forEach(function(m){ if (m.id > last) last = m.id; });
+  var r = await sb.from('wall_messages').select('id,name,body,mood,keyword,created_at')
+    .eq('room', ROOM).eq('hidden', false).gt('id', last).order('id').limit(200);
+  if (!r.error) r.data.forEach(function(m){ acceptMessage(m, true); });
+}
+
+function localLoad(k, d){ try { return JSON.parse(localStorage.getItem(LKEY + k)) || d; } catch (e){ return d; } }
+function localSave(k, v){ try { localStorage.setItem(LKEY + k, JSON.stringify(v)); } catch (e){} }
+
+function initLocal(){
+  localLoad('msgs', []).forEach(function(m){ acceptMessage(m, false); });
+  Store.totals = localLoad('totals', {});
+  Store.emit('react', null);
+  if ('BroadcastChannel' in window){
+    bc = new BroadcastChannel(LKEY);
+    bc.onmessage = function(ev){
+      var d = ev.data || {};
+      if (d.type === 'msg') acceptMessage(d.m, true);
+      else if (d.type === 'react') acceptReaction(d.emoji, d.n);
+      else if (d.type === 'hide') acceptHide(d.id);
+    };
+  }
+  setMode('local');
+}
+
+var api = {
+  addMessage: async function(m){
+    if (sb){
+      var r = await sb.from('wall_messages').insert(Object.assign({ room: ROOM }, m))
+        .select('id,name,body,mood,keyword,created_at').single();
+      if (r.error) throw r.error;
+      acceptMessage(r.data, true);
+      return;
+    }
+    var msg = Object.assign({ id: Date.now() * 1000 + Math.floor(Math.random() * 1000), created_at: new Date().toISOString() }, m);
+    var all = localLoad('msgs', []); all.push(msg); localSave('msgs', all.slice(-500));
+    if (bc) bc.postMessage({ type: 'msg', m: msg });
+    acceptMessage(msg, true);
+  },
+  react: async function(emoji, n){
+    if (sb){
+      var r = await sb.from('wall_reactions').insert({ room: ROOM, emoji: emoji, n: n });
+      if (r.error) throw r.error;
+      return;   // 自己的反應會從即時通道回來，不必在這裡加
+    }
+    var tt = localLoad('totals', {}); tt[emoji] = (tt[emoji] || 0) + n; localSave('totals', tt);
+    if (bc) bc.postMessage({ type: 'react', emoji: emoji, n: n });
+    acceptReaction(emoji, n);
+  },
+  hide: async function(id){
+    if (sb){
+      var r = await sb.from('wall_messages').update({ hidden: true }).eq('id', id);
+      if (r.error) throw r.error;
+    } else {
+      localSave('msgs', localLoad('msgs', []).filter(function(m){ return m.id !== id; }));
+      if (bc) bc.postMessage({ type: 'hide', id: id });
+    }
+    acceptHide(id);
+  }
+};
+
+function paintLive(el){
+  var map = { connecting: ['', '連線中'], cloud: ['on', '即時同步'], 'cloud-off': ['', '重新連線中'], local: ['local', '本機示範模式'] };
+  Store.on('status', function(mode){
+    var v = map[mode] || map.connecting;
+    el.className = 'live ' + v[0];
+    el.lastElementChild.textContent = v[1];
+    el.title = mode === 'local' ? '資料表尚未建立或連不上 Supabase：只在這台電腦的分頁之間同步' : '';
+  });
+}
+
+/* ============================================================
+   關鍵詞擷取（沿用互動文字雲的做法：瀏覽器內建 Intl.Segmenter）
+   ============================================================ */
+var STOPWORDS = (function(){
+  var zh = '的 了 是 在 和 與 及 或 也 都 就 而 但 但是 卻 很 太 更 最 不 沒 沒有 有 我 你 妳 他 她 它 我們 你們 他們 ' +
+    '這 那 這個 那個 這些 那些 這樣 那樣 什麼 怎麼 為什麼 因為 所以 如果 雖然 然後 還有 還是 一個 一種 一些 一直 一定 ' +
+    '可以 可能 應該 需要 覺得 認為 知道 說 對 把 被 讓 給 從 到 向 上 下 中 裡 外 前 後 之 其 此 各 每 才 再 又 已 已經 ' +
+    '正在 非常 比較 有點 一點 大家 自己 東西 事情 時候 地方 因此 而且 並且 以及 於 由 用 為 吧 呢 嗎 啊 喔 耶 啦 哦 ' +
+    '真的 好像 其實 能夠 進行 想要 去 跟 會 要 能 想 做 來 過 著 們 個 很多 一樣 這裡 那裡 現在 今天 不過 只是 就是 ' +
+    '還要 不會 不能 不要 不是 出來 起來 一起 一下 一次 謝謝 感謝 希望 今日 這次 活動 好 超 太棒 參加 收穫 下次 再來 ' +
+    '覺得很 讓我 讓人 我們的 大家的 真是 非常的 很棒 好棒 感覺 心得 分享 學到 看到 聽到 開始 結束 ' +
+    '帶著 滿滿 每一個 每個 看得出 看得 得出 重新 想起 起來 這一天 一天 明年 再見 哈哈 哈哈哈 回去 馬上 試試看 方法 很久 這麼 那麼';
+  var en = 'the a an and or but of to in on at for with is are was were be it this that i you we they my your our so very just';
+  var set = new Set();
+  (zh + ' ' + en).split(/\s+/).forEach(function(w){ if (w) set.add(w.toLowerCase()); });
+  return set;
+})();
+var CJK_RE = /^[㐀-䶿一-鿿豈-﫿]+$/;
+var HAS_LETTER_RE = /[㐀-䶿一-鿿豈-﫿A-Za-z]/;
+
+function mergeAdjacent(items){
+  var out = [], i = 0;
+  while (i < items.length){
+    var j = i, total = 0;
+    while (j < items.length && CJK_RE.test(items[j].text) && (j === i || items[j].start === items[j - 1].end)){
+      total += items[j].text.length; j++;
+    }
+    if (j - i <= 1){ out.push(items[i].text); i++; continue; }
+    if (total <= 4){
+      var joined = ''; for (var k = i; k < j; k++) joined += items[k].text; out.push(joined);
+    } else {
+      var buf = '';
+      for (var m = i; m < j; m++){
+        var t = items[m].text;
+        if (t.length === 1){ buf += t; continue; }
+        if (buf){ out.push(buf); buf = ''; }
+        out.push(t);
+      }
+      if (buf) out.push(buf);
+    }
+    i = j;
+  }
+  return out;
+}
+
+var segmenter = (window.Intl && Intl.Segmenter) ? new Intl.Segmenter('zh-Hant', { granularity: 'word' }) : null;
+function extractKeywords(raw){
+  var text = String(raw || '').trim();
+  if (!text) return [];
+  var pieces = [];
+  if (segmenter){
+    Array.from(segmenter.segment(text)).forEach(function(s){
+      if (!s.isWordLike) return;
+      var w = s.segment.trim();
+      if (!w || STOPWORDS.has(w.toLowerCase())) return;
+      pieces.push({ text: w, start: s.index, end: s.index + s.segment.length });
+    });
+  }
+  var out = [], seen = new Set();
+  mergeAdjacent(pieces).forEach(function(w){
+    w = w.trim();
+    if (!w || w.length > 12 || !HAS_LETTER_RE.test(w)) return;
+    if (w.length === 1 && CJK_RE.test(w)) return;
+    var key = w.toLowerCase();
+    if (STOPWORDS.has(key) || seen.has(key)) return;
+    seen.add(key); out.push(w);
+  });
+  return out;
+}
+
+/* 文字雲的計票：來賓自己填的「一個詞」最準，有填就只用它；
+   沒填的留言才從內文自動抽詞（最多 2 個）—— 自動斷詞難免抽到碎片，
+   能少用就少用。 */
+var kwCache = new Map();
+function wordsOf(m){
+  if (kwCache.has(m.id)) return kwCache.get(m.id);
+  var list = [];
+  var own = String(m.keyword || '').trim().replace(/[\s，,。.!！?？]+/g, '');
+  if (own) list.push({ w: own, n: 1 });
+  else extractKeywords(m.body).slice(0, 2).forEach(function(w){ list.push({ w: w, n: 1 }); });
+  kwCache.set(m.id, list);
+  return list;
+}
+function countWords(msgs){
+  var c = new Map();
+  (msgs || Store.messages).forEach(function(m){
+    wordsOf(m).forEach(function(x){
+      var key = x.w.toLowerCase();
+      var cur = c.get(key) || { text: x.w, n: 0 };
+      cur.n += x.n; c.set(key, cur);
+    });
+  });
+  return Array.from(c.values()).sort(function(a, b){ return b.n - a.n || a.text.localeCompare(b.text, 'zh-Hant'); });
+}
+
+/* ============================================================
+   文字雲排版：由大到小，沿阿基米德螺線找不重疊的位置
+   ============================================================ */
+var measurer = document.createElement('canvas').getContext('2d');
+var CLOUD_COLORS = ['#A61B22', '#2B2622', '#7E3B1E', '#3D5A4A', '#2F4A66', '#8A2F4D', '#5E4B2B'];
+function weightFor(t){ return t > 0.66 ? 900 : (t > 0.30 ? 700 : 500); }
+function measure(text, size, vertical, weight){
+  var pad = Math.max(3, size * 0.10), w, h;
+  if (vertical){ w = size * 1.12; h = size * 1.06 * text.length; }
+  else { measurer.font = weight + ' ' + size + 'px "Noto Serif TC","Songti TC",serif'; w = measurer.measureText(text).width; h = size * 1.16; }
+  return { w: w + pad * 2, h: h + pad * 2, pad: pad };
+}
+function hits(b, placed){
+  for (var i = 0; i < placed.length; i++){
+    var p = placed[i];
+    if (b.x < p.x + p.w && b.x + b.w > p.x && b.y < p.y + p.h && b.y + b.h > p.y) return true;
+  }
+  return false;
+}
+function layout(list, W, H, maxSize, minSize, edge, allowShrink){
+  var placed = [], result = [];
+  var maxN = list[0].n, minN = list[list.length - 1].n, span = Math.max(1, maxN - minN);
+  var cx = W / 2, cy = H / 2, aspect = W / H, maxR = Math.sqrt(W * W + H * H) / 2;
+  for (var i = 0; i < list.length; i++){
+    var item = list[i];
+    var t = (maxN === minN) ? 0.62 : (item.n - minN) / span;
+    var size = minSize + (maxSize - minSize) * Math.pow(t, 0.85);   // 出現越多次字越大
+    var weight = weightFor(t);
+    var vertical = isCJK(item.text) && item.text.length >= 2 && item.text.length <= 5 && (hash(item.text) % 5 === 0);
+    var spot = null;
+    for (var attempt = 0; attempt < (allowShrink ? 3 : 1) && !spot; attempt++){
+      var s = size * [1, 0.78, 0.58][attempt];
+      if (s < 10) break;
+      var m = measure(item.text, s, vertical, weight);
+      if (m.w > W - edge * 2 || m.h > H - edge * 2) continue;
+      for (var step = 0; step < 5200; step++){
+        var ang = step * 0.30, r = 0.85 * ang;
+        if (r > maxR * 1.2) break;
+        var x = cx + r * Math.cos(ang) * (aspect > 1 ? aspect * 0.92 : 1) - m.w / 2;
+        var y = cy + r * Math.sin(ang) * (aspect < 1 ? (1 / aspect) * 0.92 : 1) - m.h / 2;
+        if (x < edge || y < edge || x + m.w > W - edge || y + m.h > H - edge) continue;
+        var box = { x: x, y: y, w: m.w, h: m.h };
+        if (!hits(box, placed)){ placed.push(box); spot = { x: x + m.pad, y: y + m.pad, size: s, vertical: vertical }; break; }
+      }
+    }
+    if (spot) result.push({ text: item.text, n: item.n, x: spot.x, y: spot.y, size: spot.size, vertical: spot.vertical, weight: weight, t: t });
+  }
+  return result;
+}
+
+function makeCloud(el, maxWords){
+  var nodes = new Map(), timer = 0, lastCounts = new Map();
+  function render(){
+    timer = 0;
+    var list = countWords().slice(0, maxWords);
+    var W = el.clientWidth, H = el.clientHeight;
+    var empty = el.querySelector('.cloud-empty');
+    if (!list.length){
+      nodes.forEach(function(n){ n.remove(); }); nodes.clear();
+      if (!empty){ empty = document.createElement('div'); empty.className = 'cloud-empty'; empty.textContent = '留言送出後，關鍵詞會在這裡長出來'; el.appendChild(empty); }
+      return;
+    }
+    if (empty) empty.remove();
+    if (W < 40 || H < 40) return;
+    var edge = clamp(Math.min(W, H) * 0.05, 10, 32), iw = W - edge * 2, ih = H - edge * 2;
+    var base = Math.sqrt((iw * ih) / Math.max(8, list.length));
+    var maxSize = clamp(base * 1.0, 22, Math.min(iw * 0.42, ih * 0.36));
+    var minSize = clamp(base * 0.24, 12, maxSize * 0.30);
+    var out = layout(list, W, H, maxSize, minSize, edge), tries = 0;
+    // 放不下時整體等比縮小重排，大小順序不變；最後一輪才允許個別詞縮小擠進去
+    while (out.length < list.length && tries < 4){ maxSize *= 0.84; minSize = Math.max(11, minSize * 0.9); tries++; out = layout(list, W, H, maxSize, minSize, edge, tries === 4); }
+
+    var keep = new Set();
+    out.forEach(function(p){
+      var key = p.text.toLowerCase(); keep.add(key);
+      var n = nodes.get(key), isNew = !n;
+      if (isNew){
+        n = document.createElement('span'); n.className = 'w enter';
+        n.textContent = p.text; el.appendChild(n); nodes.set(key, n);
+        setTimeout(function(){ n.classList.remove('enter'); }, 30);   // 不用 rAF：背景分頁會凍結
+      }
+      n.classList.toggle('v', p.vertical);
+      n.style.left = p.x + 'px'; n.style.top = p.y + 'px';
+      n.style.fontSize = p.size + 'px'; n.style.fontWeight = p.weight;
+      n.style.color = CLOUD_COLORS[hash(p.text) % CLOUD_COLORS.length];
+      n.style.opacity = (0.86 + 0.14 * p.t).toFixed(2);
+      n.title = p.text + '：' + p.n + ' 次';
+      var before = lastCounts.get(key) || 0;
+      if (!isNew && p.n > before){ n.classList.remove('glow'); void n.offsetWidth; n.classList.add('glow'); }
+      lastCounts.set(key, p.n);
+    });
+    nodes.forEach(function(n, key){ if (!keep.has(key)){ n.remove(); nodes.delete(key); } });
+  }
+  function schedule(){ if (!timer) timer = setTimeout(render, 220); }   // 爆量時合併成一次重排
+  new ResizeObserver(schedule).observe(el);
+  Store.on('msg', schedule); Store.on('hide', schedule);
+  return { render: schedule };
+}
+
+/* ============================================================
+   來賓端
+   ============================================================ */
+function initGuest(){
+  $('guest').classList.remove('hide');
+  $('gTitle').textContent = TITLE;
+  $('gQuestion').textContent = QUESTION;
+  document.title = TITLE + '｜留言牆';
+  paintLive($('gLive'));
+
+  var selected = '';
+  var pending = {}, flushTimer = 0, myTaps = 0;
+  var combo = {};   // emoji → { n, timer, el }
+
+  MOODS.forEach(function(m){
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'mood'; b.setAttribute('aria-label', m.t);
+    b.innerHTML = '<span class="e"></span><span class="t"></span><span class="combo"></span>';
+    b.querySelector('.e').textContent = m.e;
+    b.querySelector('.t').textContent = m.t;
+    b.addEventListener('click', function(ev){ tap(m, b, ev); });
+    $('moods').appendChild(b);
+  });
+
+  function tap(m, b, ev){
+    selected = m.e;
+    document.querySelectorAll('.mood').forEach(function(x){ x.classList.toggle('sel', x === b); });
+    $('picked').innerHTML = '';
+    $('picked').append('留言會附上 ', Object.assign(document.createElement('b'), { textContent: m.e }), '（' + m.t + '）');
+
+    if (navigator.vibrate) try { navigator.vibrate(8); } catch (e){}
+    popEmoji(m.e, b);
+
+    pending[m.e] = (pending[m.e] || 0) + 1;
+    myTaps++;
+    $('tapNote').textContent = '你已經送出 ' + myTaps + ' 個心情 · 繼續按，牆上會一起湧出來';
+    if (!flushTimer) flushTimer = setTimeout(flush, 500);
+
+    var c = combo[m.e] || (combo[m.e] = { n: 0, timer: 0, el: b.querySelector('.combo') });
+    c.n++; c.el.textContent = '×' + c.n; c.el.classList.add('show');
+    clearTimeout(c.timer);
+    c.timer = setTimeout(function(){ c.n = 0; c.el.classList.remove('show'); }, 1400);
+  }
+
+  function popEmoji(e, b){
+    var r = b.getBoundingClientRect();
+    var s = document.createElement('span');
+    s.className = 'pop'; s.textContent = e;
+    s.style.left = (r.left + r.width / 2 - 15) + 'px'; s.style.top = (r.top + 4) + 'px';
+    document.body.appendChild(s);
+    var dx = rand(-40, 40);
+    s.animate([
+      { transform: 'translate(0,0) scale(.6)', opacity: 1 },
+      { transform: 'translate(' + dx * 0.5 + 'px,-60px) scale(1.2)', opacity: 1, offset: .4 },
+      { transform: 'translate(' + dx + 'px,-140px) scale(.9)', opacity: 0 }
+    ], { duration: 900, easing: 'cubic-bezier(.2,.7,.3,1)' }).onfinish = function(){ s.remove(); };
+  }
+
+  // 連按的次數每 0.5 秒合併成一筆送出（一筆最多 40），牆上再把它還原成一串 emoji
+  function flush(){
+    flushTimer = 0;
+    Object.keys(pending).forEach(function(e){
+      var n = pending[e]; if (!n) return;
+      var send = Math.min(n, 40);
+      pending[e] = n - send;
+      api.react(e, send).catch(function(err){ console.warn(err); });
+    });
+    if (Object.keys(pending).some(function(e){ return pending[e] > 0; })) flushTimer = setTimeout(flush, 500);
+  }
+  window.addEventListener('pagehide', flush);
+
+  // 名字記在這支手機上，下次不必再打
+  try { $('name').value = localStorage.getItem('wall:name') || ''; } catch (e){}
+  $('body').addEventListener('input', function(){ $('bodyCount').textContent = $('body').value.length; });
+
+  var lastSent = 0;
+  $('form').addEventListener('submit', async function(ev){
+    ev.preventDefault();
+    var body = $('body').value.trim();
+    if (!body){ $('body').focus(); return; }
+    if (Date.now() - lastSent < 6000){ toast('慢慢來，等幾秒再送下一則 ☺'); return; }
+    var name = $('name').value.trim().slice(0, 12);
+    try { localStorage.setItem('wall:name', name); } catch (e){}
+    $('send').disabled = true; $('send').textContent = '送出中…';
+    try {
+      await api.addMessage({ name: name || null, body: body.slice(0, 120), mood: selected || null,
+                             keyword: $('kw').value.trim().slice(0, 8) || null });
+      lastSent = Date.now();
+      $('body').value = ''; $('kw').value = ''; $('bodyCount').textContent = '0';
+      toast('已經飛上牆了 ✨');
+    } catch (e){
+      console.warn(e);
+      toast('沒送出去，請再試一次');
+    } finally {
+      $('send').disabled = false; $('send').textContent = '送上牆';
+    }
+  });
+
+  makeCloud($('guestCloud'), 40);
+  initStore();
+}
+
+var toastTimer = 0;
+function toast(text){
+  var t = $('toast'); t.textContent = text; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 2200);
+}
+
+/* ============================================================
+   公布牆
+   ============================================================ */
+var stage, visible = [], queue = [], cursor = 0, reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function initWall(){
+  $('wall').classList.remove('hide');
+  $('wTitle').textContent = TITLE;
+  $('wQuestion').textContent = QUESTION;
+  document.title = TITLE + '｜留言牆';
+  paintLive($('wLive'));
+  stage = $('stage');
+
+  // 心情能量
+  MOODS.forEach(function(m){
+    var d = document.createElement('div'); d.className = 'meter'; d.dataset.e = m.e;
+    d.innerHTML = '<span class="e"></span><b>0</b>';
+    d.querySelector('.e').textContent = m.e;
+    d.title = m.t;
+    $('meters').appendChild(d);
+  });
+
+  Store.on('msg', function(x){
+    updateStats();
+    if (x.live) showMessage(x.m, true);        // 現場剛送來的：立刻綻開
+  });
+  Store.on('hide', function(id){
+    var v = visible.find(function(c){ return c.m.id === id; });
+    if (v) retire(v);
+    updateStats();
+  });
+  Store.on('react', function(x){
+    if (!x) syncMilestones();
+    updateMeters(x && x.emoji);
+    updateStats();
+    if (x) rain(x.emoji, x.n);
+  });
+
+  makeCloud($('wallCloud'), 60);
+  drawQr();
+  initTools();
+
+  // 舞台大小改變（全螢幕、換投影機）：全部重新擺
+  var lastW = 0, lastH = 0;
+  new ResizeObserver(function(){
+    var W = stage.clientWidth, H = stage.clientHeight;
+    if (Math.abs(W - lastW) < 20 && Math.abs(H - lastH) < 20) return;
+    lastW = W; lastH = H;
+    visible.slice().forEach(function(v){ v.el.remove(); });
+    visible = [];
+    fillStage();
+  }).observe(stage);
+
+  initStore().then(fillStage);
+  setInterval(rotate, 6500);
+}
+
+function updateStats(){
+  $('statMsg').textContent = Store.messages.size;
+  var sum = 0; Object.keys(Store.totals).forEach(function(k){ sum += Store.totals[k]; });
+  $('statReact').textContent = sum.toLocaleString();
+  $('stageEmpty').classList.toggle('hide', Store.messages.size > 0 || visible.length > 0);
+}
+function updateMeters(bumpEmoji){
+  document.querySelectorAll('.meter').forEach(function(d){
+    d.querySelector('b').textContent = (Store.totals[d.dataset.e] || 0).toLocaleString();
+    if (d.dataset.e === bumpEmoji){
+      var e = d.querySelector('.e'); e.classList.remove('bump'); void e.offsetWidth; e.classList.add('bump');
+    }
+  });
+}
+
+/* ---------- 留言卡：不排成一條條，而是散落在舞台上各自呼吸 ---------- */
+function scale(){ return clamp(stage.clientWidth / 1200, 0.55, 1.6); }
+function tierFor(len){
+  // 短句寫得大，像一句標語；長段落縮小、拉窄，讀起來不累
+  if (len <= 10) return { fs: 36, mw: 0.50 };
+  if (len <= 24) return { fs: 29, mw: 0.40 };
+  if (len <= 50) return { fs: 23, mw: 0.34 };
+  return { fs: 19, mw: 0.31 };
+}
+
+function buildCard(m, fresh){
+  var len = String(m.body).length, tier = tierFor(len), k = scale();
+  var el = document.createElement('div');
+  el.className = 'card c' + (hash(String(m.id)) % 6) + (fresh ? ' fresh' : '');
+  el.style.fontSize = (tier.fs * k) + 'px';
+  el.style.maxWidth = (stage.clientWidth * tier.mw) + 'px';
+  el.style.visibility = 'hidden';
+  var inner = document.createElement('div'); inner.className = 'card-in';
+  inner.style.setProperty('--rot', rand(-2.2, 2.2).toFixed(2) + 'deg');
+  inner.style.animationDuration = rand(6.5, 10).toFixed(1) + 's';
+  inner.style.animationDelay = (-rand(0, 8)).toFixed(1) + 's';
+  if (m.mood){ var mb = document.createElement('span'); mb.className = 'mood-b'; mb.textContent = m.mood; inner.appendChild(mb); }
+  var p = document.createElement('p'); p.className = 'body'; p.textContent = m.body; inner.appendChild(p);
+  var who = document.createElement('div'); who.className = 'who';
+  who.appendChild(document.createTextNode('— ' + (m.name || '一位來賓')));
+  if (m.keyword){ var kw = document.createElement('span'); kw.className = 'kw'; kw.textContent = m.keyword; who.appendChild(kw); }
+  inner.appendChild(who);
+  el.appendChild(inner);
+  inner.addEventListener('click', function(ev){ ev.stopPropagation(); openMenu(m, ev); });
+  return el;
+}
+
+/* 找一個空位：隨機撒 120 個候選點，挑「離其他卡片最遠」的那個 ——
+   這樣卡片之間留有空氣，畫面才有疏密、有呼吸，而不是塞滿。 */
+function findSpot(w, h, extra){
+  var others = extra ? visible.concat(extra) : visible.concat(stickers);
+  var W = stage.clientWidth, H = stage.clientHeight, pad = 18 * scale(), best = null, bestD = -1;
+  if (w > W - pad * 2 || h > H - pad * 2) return null;
+  for (var i = 0; i < 120; i++){
+    var x = rand(pad, W - w - pad), y = rand(pad + 8, H - h - pad);
+    var d = Infinity, ok = true;
+    for (var j = 0; j < others.length; j++){
+      var v = others[j];
+      var gx = Math.max(v.x - (x + w), x - (v.x + v.w), 0);
+      var gy = Math.max(v.y - (y + h), y - (v.y + v.h), 0);
+      if (gx < pad && gy < pad){ ok = false; break; }
+      d = Math.min(d, Math.hypot(gx, gy));
+    }
+    if (!ok) continue;
+    if (d > bestD){ bestD = d; best = { x: x, y: y }; }
+  }
+  return best;
+}
+
+function coverage(){
+  var a = 0; visible.forEach(function(v){ a += v.w * v.h; });
+  return a / (stage.clientWidth * stage.clientHeight);
+}
+
+function showMessage(m, fresh){
+  if (visible.some(function(v){ return v.m.id === m.id; })) return false;
+  var el = buildCard(m, fresh);
+  stage.appendChild(el);
+  var w = el.offsetWidth, h = el.offsetHeight;
+  // 畫面最多鋪到 45%：留白是韻律的一部分
+  while (visible.length && coverage() + (w * h) / (stage.clientWidth * stage.clientHeight) > 0.45){
+    if (!retire(oldest())) break;
+  }
+  var spot = findSpot(w, h), guard = 0;
+  while (!spot && visible.length && guard++ < 6){ retire(oldest()); spot = findSpot(w, h); }
+  if (!spot){ el.remove(); return false; }
+  el.style.left = spot.x + 'px'; el.style.top = spot.y + 'px';
+  el.style.visibility = '';
+  el.classList.add('bloom');
+  lastBloom = Date.now();
+  visible.push({ m: m, el: el, x: spot.x, y: spot.y, w: w, h: h, at: Date.now(), fresh: fresh });
+  if (fresh) setTimeout(function(){ el.classList.remove('fresh'); }, 8000);
+  updateStats();
+  return true;
+}
+
+function oldest(){
+  var list = visible.slice().sort(function(a, b){ return a.at - b.at; });
+  return list[0];
+}
+function retire(v){
+  if (!v) return false;
+  visible = visible.filter(function(x){ return x !== v; });   // 位置立刻讓出來
+  v.el.classList.remove('bloom'); v.el.classList.add('leave');
+  setTimeout(function(){ v.el.remove(); }, 1700);
+  return true;
+}
+
+/* 開牆時：先擺最近的留言，直到畫面舒服地滿 */
+function fillStage(){
+  var all = Store.sorted();
+  queue = all; cursor = 0;
+  var recent = all.slice(-14).reverse();
+  for (var i = 0; i < recent.length; i++){
+    if (coverage() > 0.38) break;
+    showMessage(recent[i], false);
+  }
+  updateStats();
+}
+
+/* 輪播：留言比畫面放得下的多時，每隔幾秒讓最久的一張淡出、換一張舊留言浮上來，
+   讓每一則都有機會被看見 */
+function rotate(){
+  var all = Store.sorted();
+  if (!all.length || document.hidden) return;
+  var shown = new Set(visible.map(function(v){ return v.m.id; }));
+  var candidates = all.filter(function(m){ return !shown.has(m.id); });
+  if (!candidates.length) return;
+  var old = oldest();
+  if (old && Date.now() - old.at > 15000 && coverage() > 0.30) retire(old);
+  cursor = cursor % candidates.length;
+  var next = candidates[cursor++];
+  setTimeout(function(){ showMessage(next, false); }, 900);
+}
+
+/* ---------- 心情 emoji ----------
+   按幾次就出現幾個，排隊依序浮現：平常每 0.18 秒一個，排隊很長時 0.11 秒。
+   每個 emoji 的大小跟著「它的累計次數」走 —— 全場最常被按的那個最大。
+   剛有新留言綻開時先停一下，不跟留言卡搶同一個瞬間。 */
+var MAX_STICKERS = reduced ? 6 : 22;
+var MAX_QUEUE = 200;          // 全場狂按時排隊上限，超過的就不再補播（累計數字仍照算）
+var stickers = [], emojiQueue = [], lastBloom = 0;
+
+function rain(emoji, n){
+  for (var i = 0; i < n && emojiQueue.length < MAX_QUEUE; i++) emojiQueue.push(emoji);
+  checkMilestone(emoji);
+}
+
+(function emojiTick(){
+  var wait = emojiQueue.length > 40 ? 110 : 180;
+  if (stage && !document.hidden && emojiQueue.length && Date.now() - lastBloom > 1000 && !celebrating){
+    placeSticker(emojiQueue.shift());
+  }
+  setTimeout(emojiTick, wait);
+})();
+
+/* 0.75 倍（很少人按）到 2.1 倍（全場第一名） */
+function sizeFor(emoji){
+  var max = 0; MOODS.forEach(function(m){ max = Math.max(max, Store.totals[m.e] || 0); });
+  var t = max ? (Store.totals[emoji] || 0) / max : 0;
+  return 0.75 + 1.35 * Math.sqrt(t);
+}
+
+function placeSticker(emoji){
+  if (stickers.length >= MAX_STICKERS) fadeAway(stickers[0]);
+  var k = scale() * sizeFor(emoji) * rand(0.92, 1.08);
+  var el = document.createElement('div');
+  el.className = 'sticker';
+  el.style.fontSize = (24 * k) + 'px';
+  el.innerHTML = '<span class="e"></span>';
+  el.querySelector('.e').textContent = emoji;
+  el.style.visibility = 'hidden';
+  stage.appendChild(el);
+  var w = el.offsetWidth, h = el.offsetHeight, rise = 70 * scale();
+  // 找不到完全空的位置也照樣出現（emoji 在卡片後面，不會擋字）——按幾次就要看到幾個
+  var spot = findSpot(w, h + rise, stickers) || { x: rand(0, stage.clientWidth - w), y: rand(0, stage.clientHeight - h - rise) };
+  var rot = rand(-12, 12), rot2 = rot + rand(-8, 8);
+  el.style.left = spot.x + 'px'; el.style.top = (spot.y + rise) + 'px';
+  el.style.visibility = '';
+  var rec = { el: el, x: spot.x, y: spot.y, w: w, h: h + rise };
+  stickers.push(rec);
+  rec.anim = el.animate([
+    { transform: 'translateY(10px) scale(.6) rotate(' + rot + 'deg)', opacity: 0, filter: 'blur(4px)' },
+    { transform: 'translateY(0) scale(1.05) rotate(' + rot + 'deg)', opacity: 1, filter: 'blur(0)', offset: .14 },
+    { transform: 'translateY(' + (-rise * 0.55) + 'px) scale(1) rotate(' + rot2 + 'deg)', opacity: 1, filter: 'blur(0)', offset: .65 },
+    { transform: 'translateY(' + (-rise) + 'px) scale(.95) rotate(' + rot2 + 'deg)', opacity: 0, filter: 'blur(1px)' }
+  ], { duration: rand(2800, 3600), easing: 'cubic-bezier(.3,.6,.4,1)', fill: 'forwards' });
+  rec.anim.onfinish = function(){ remove(rec); };
+}
+
+function remove(rec){
+  stickers = stickers.filter(function(x){ return x !== rec; });
+  rec.el.remove();
+}
+function fadeAway(rec){
+  if (!rec) return;
+  stickers = stickers.filter(function(x){ return x !== rec; });
+  rec.anim.pause();
+  rec.el.animate([{ opacity: getComputedStyle(rec.el).opacity }, { opacity: 0 }],
+    { duration: 500, easing: 'ease-out', fill: 'forwards' }).onfinish = function(){ rec.el.remove(); };
+}
+
+/* ---------- 里程碑：某個心情累計滿 50、100、200、300、500、800、1000…次 ----------
+   那個 emoji 從一般大小長到滿版那麼大，下面寫「謝謝大家！」，全螢幕灑彩帶。
+   工具列的「謝謝大家」按鈕可以在活動最後手動謝幕（用全場最多的那個 emoji）。 */
+var MILESTONES = [50, 100, 200, 300, 500, 800, 1000, 1500, 2000, 3000, 5000];
+var reached = {}, celebrating = false, celebrateQueue = [];
+
+function milestoneOf(n){ var r = 0; MILESTONES.forEach(function(m){ if (n >= m) r = m; }); return r; }
+function syncMilestones(){ MOODS.forEach(function(m){ reached[m.e] = milestoneOf(Store.totals[m.e] || 0); }); }
+function topEmoji(){
+  var best = MOODS[0].e, n = -1;
+  MOODS.forEach(function(m){ var v = Store.totals[m.e] || 0; if (v > n){ n = v; best = m.e; } });
+  return { e: best, n: Math.max(0, n) };
+}
+function checkMilestone(emoji){
+  var m = milestoneOf(Store.totals[emoji] || 0);
+  if (m > (reached[emoji] || 0)){ reached[emoji] = m; celebrate(emoji, m, false); }
+}
+
+function celebrate(emoji, n, finale){
+  if (celebrating){ celebrateQueue.push([emoji, n, finale]); return; }
+  celebrating = true;
+  var mood = MOODS.find(function(x){ return x.e === emoji; });
+  var d = document.createElement('div'); d.className = 'thanks';
+  d.innerHTML = '<span class="e"></span><span class="t">謝謝大家！</span><span class="s"></span>';
+  d.querySelector('.e').textContent = emoji;
+  d.querySelector('.s').textContent = finale
+    ? '全場最多的心情：' + (mood ? mood.t : '') + '　共 ' + n.toLocaleString() + ' 次'
+    : (mood ? mood.t : '') + ' 已經 ' + n.toLocaleString() + ' 次了';
+  document.body.appendChild(d);
+
+  var hold = finale ? 7000 : 4600;
+  var e = d.querySelector('.e');
+  e.style.fontSize = finale ? '42vh' : '32vh';
+  // emoji 從一般大小慢慢長大，最後停在很大
+  e.animate([
+    { transform: 'scale(.12) rotate(-12deg)' },
+    { transform: 'scale(.7) rotate(6deg)', offset: .45 },
+    { transform: 'scale(1.06) rotate(-3deg)', offset: .8 },
+    { transform: 'scale(1) rotate(0deg)' }
+  ], { duration: 1600, easing: 'cubic-bezier(.3,.7,.3,1)', fill: 'forwards' });
+  d.querySelectorAll('.t,.s').forEach(function(x, i){
+    x.animate([{ opacity: 0, transform: 'translateY(16px)' }, { opacity: 1, transform: 'translateY(0)' }],
+      { duration: 700, delay: 900 + i * 250, easing: 'ease-out', fill: 'both' });
+  });
+  confetti(finale ? 6000 : 3800, finale ? 320 : 200);
+
+  d.animate([{ opacity: 1 }, { opacity: 1, offset: .85 }, { opacity: 0 }], { duration: hold, fill: 'forwards' })
+    .onfinish = function(){
+      d.remove();
+      setTimeout(function(){
+        celebrating = false;
+        var next = celebrateQueue.shift();
+        if (next) celebrate(next[0], next[1], next[2]);
+      }, 600);
+    };
+}
+
+/* ---------- 彩帶：自己畫在 canvas 上，不載外掛函式庫 ----------
+   一半是小紙片，一半是細長的彩帶條，翻轉時用 cos 壓扁寬度做出立體感。 */
+var CONFETTI_COLORS = ['#A61B22', '#E0A526', '#2F7D6B', '#3B6AA8', '#E58AA0', '#F3C969', '#7E3B1E', '#8FB8DE'];
+var confettiParts = [], confettiUntil = 0, confettiRunning = false;
+
+function confetti(duration, count){
+  var cv = $('confetti'), W = innerWidth, H = innerHeight, dpr = Math.min(2, devicePixelRatio || 1);
+  cv.width = W * dpr; cv.height = H * dpr;
+  if (reduced) count = Math.round(count / 4);
+  for (var i = 0; i < count; i++){
+    var ribbon = Math.random() < 0.45;
+    confettiParts.push({
+      x: rand(0, W), y: rand(-H * 0.9, -20),
+      w: ribbon ? rand(5, 8) : rand(8, 13), h: ribbon ? rand(26, 46) : rand(10, 16),
+      vx: rand(-1.2, 1.2), vy: rand(2.2, 4.6), sway: rand(0.6, 1.8), phase: rand(0, 6.28),
+      rot: rand(0, 6.28), vr: rand(-0.12, 0.12), flip: rand(0.05, 0.14),
+      color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)]
+    });
+  }
+  confettiUntil = Math.max(confettiUntil, Date.now() + duration);
+  if (!confettiRunning){ confettiRunning = true; requestAnimationFrame(confettiFrame); }
+}
+
+function confettiFrame(){
+  var cv = $('confetti'), g = cv.getContext('2d'), dpr = cv.width / innerWidth, H = innerHeight;
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, innerWidth, H);
+  var ending = Date.now() > confettiUntil;
+  confettiParts = confettiParts.filter(function(p){
+    p.phase += 0.05; p.rot += p.vr;
+    p.x += p.vx + Math.sin(p.phase) * p.sway;
+    p.y += p.vy;
+    if (p.y > H + 60){
+      if (ending) return false;
+      p.y = rand(-80, -20); p.x = rand(0, innerWidth);   // 時間還沒到就從上面再落一次
+    }
+    g.save();
+    g.translate(p.x, p.y); g.rotate(p.rot);
+    g.scale(Math.cos(p.phase * p.flip * 20), 1);
+    g.fillStyle = p.color;
+    g.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+    g.restore();
+    return true;
+  });
+  if (confettiParts.length) requestAnimationFrame(confettiFrame);
+  else { confettiRunning = false; g.clearRect(0, 0, innerWidth, H); }
+}
+
+/* ---------- 牆上移除不當留言 ---------- */
+function openMenu(m, ev){
+  closeMenu();
+  var menu = document.createElement('div'); menu.className = 'menu'; menu.id = 'menu';
+  var del = document.createElement('button'); del.className = 'danger'; del.textContent = '從牆上移除這則';
+  var cancel = document.createElement('button'); cancel.textContent = '取消';
+  menu.append(del, cancel);
+  document.body.appendChild(menu);
+  menu.style.left = clamp(ev.clientX - 80, 8, innerWidth - menu.offsetWidth - 8) + 'px';
+  menu.style.top = clamp(ev.clientY + 12, 8, innerHeight - menu.offsetHeight - 8) + 'px';
+  del.onclick = function(){
+    closeMenu();
+    api.hide(m.id).catch(function(e){ alert('移除失敗：' + (e.message || e)); });
+  };
+  cancel.onclick = closeMenu;
+}
+function closeMenu(){ var x = $('menu'); if (x) x.remove(); }
+document.addEventListener('click', closeMenu);
+
+/* ---------- 工具列、全螢幕、示範 ---------- */
+function initTools(){
+  var tools = $('tools'), t = 0;
+  document.addEventListener('mousemove', function(){
+    tools.classList.add('show'); clearTimeout(t);
+    t = setTimeout(function(){ tools.classList.remove('show'); }, 2500);
+  });
+  $('tFull').onclick = function(){
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen().catch(function(){});
+  };
+  $('tExcel').onclick = exportExcel;
+  $('tImg').onclick = exportCloudImage;
+  $('tThanks').onclick = function(){ var top = topEmoji(); celebrate(top.e, top.n, true); };
+  $('tDemo').onclick = function(){ toggleDemo(); this.classList.toggle('on', !!demoTimer); };
+  if (P.has('demo')){ toggleDemo(); $('tDemo').classList.add('on'); }
+}
+
+/* 示範動畫：只在這台螢幕上模擬來賓，不會寫進資料庫 */
+var demoTimer = 0, demoId = -1, demoLine = 0;
+var DEMO_LINES = [
+  ['第一次跟鄰居一起闖關，好好玩！', '好玩', '🤩', '小安'],
+  ['謝謝每一關的關主，辛苦了！', '感謝', '🙌', null],
+  ['終於集滿印章了', '成就感', '🥳', '阿哲'],
+  ['牽著阿嬤的手一起走完全程', '溫暖', '🤗', '小芬'],
+  ['第三關好難，差點過不了，還好隊友超強，最後一起解出來的那一刻真的很感動', '團隊', '😍', '陳老師'],
+  ['原來住在隔壁的就是你！', '認識', '😄', null],
+  ['孩子玩到不想回家', '歡樂', '😄', 'Mia'],
+  ['過關了！！', '過關', '🥳', '阿凱'],
+  ['好緊張但好刺激', '刺激', '😉', null],
+  ['期待明年再來闖關', '期待', '🙌', 'Joyce'],
+  ['厝邊頭尾作伙，感情更好了', '厝邊', '😚', '林先生'],
+  ['全家一起拿到獎品了', '開心', '🥳', null],
+  ['謝謝你們讓社區這麼有溫度', '溫暖', '😘', 'Amy'],
+  ['下次還要再來', '期待', '🤩', '王媽媽']
+];
+function toggleDemo(){
+  if (demoTimer){ clearInterval(demoTimer); demoTimer = 0; return; }
+  var tick = 0;
+  demoTimer = setInterval(function(){
+    tick++;
+    if (tick % 9 === 0){
+      var L = DEMO_LINES[demoLine++ % DEMO_LINES.length];
+      acceptMessage({ id: demoId--, body: L[0], keyword: L[1], mood: L[2], name: L[3], created_at: new Date().toISOString() }, true);
+    }
+    var e = MOODS[Math.floor(Math.random() * MOODS.length)].e;
+    if (Math.random() < 0.6) acceptReaction(e, Math.ceil(rand(1, tick % 40 < 6 ? 30 : 6)));
+  }, 450);
+}
+// 示範用的負數 id 要排在最後，輪播才不會亂序
+Store.sorted = function(){
+  return Array.from(this.messages.values()).sort(function(a, b){
+    return (a.id < 0 ? 1e15 - a.id : a.id) - (b.id < 0 ? 1e15 - b.id : b.id);
+  });
+};
+
+/* ============================================================
+   下載：留言 Excel、文字雲圖片
+   xlsx 產生器沿用互動文字雲那一套（不壓縮的 ZIP＋幾份 XML，不必載 SheetJS）
+   ============================================================ */
+var CRC_TABLE = (function(){
+  var tbl = new Uint32Array(256);
+  for (var n = 0; n < 256; n++){
+    var c = n;
+    for (var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    tbl[n] = c >>> 0;
+  }
+  return tbl;
+})();
+
+function crc32(bytes){
+  var crc = 0xFFFFFFFF;
+  for (var i = 0; i < bytes.length; i++){
+    crc = CRC_TABLE[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+/* 只做 store（不壓縮）的 ZIP —— xlsx 完全接受，也省掉實作 deflate */
+function makeZip(files){
+  var enc = new TextEncoder();
+  var parts = [], central = [], offset = 0;
+
+  files.forEach(function(f){
+    var name = enc.encode(f.name);
+    var data = enc.encode(f.xml);
+    var crc = crc32(data);
+
+    var lh = new Uint8Array(30 + name.length);
+    var d = new DataView(lh.buffer);
+    d.setUint32(0, 0x04034b50, true);
+    d.setUint16(4, 20, true);
+    d.setUint16(6, 0x0800, true);   // 檔名用 UTF-8
+    d.setUint16(8, 0, true);        // 不壓縮
+    d.setUint16(10, 0, true);
+    d.setUint16(12, 0x0021, true);  // 1980-01-01
+    d.setUint32(14, crc, true);
+    d.setUint32(18, data.length, true);
+    d.setUint32(22, data.length, true);
+    d.setUint16(26, name.length, true);
+    d.setUint16(28, 0, true);
+    lh.set(name, 30);
+    parts.push(lh, data);
+
+    var cd = new Uint8Array(46 + name.length);
+    var c = new DataView(cd.buffer);
+    c.setUint32(0, 0x02014b50, true);
+    c.setUint16(4, 20, true);
+    c.setUint16(6, 20, true);
+    c.setUint16(8, 0x0800, true);
+    c.setUint16(10, 0, true);
+    c.setUint16(12, 0, true);
+    c.setUint16(14, 0x0021, true);
+    c.setUint32(16, crc, true);
+    c.setUint32(20, data.length, true);
+    c.setUint32(24, data.length, true);
+    c.setUint16(28, name.length, true);
+    c.setUint32(42, offset, true);
+    cd.set(name, 46);
+    central.push(cd);
+
+    offset += lh.length + data.length;
+  });
+
+  var cdSize = central.reduce(function(a, b){ return a + b.length; }, 0);
+  var eocd = new Uint8Array(22);
+  var e = new DataView(eocd.buffer);
+  e.setUint32(0, 0x06054b50, true);
+  e.setUint16(8, files.length, true);
+  e.setUint16(10, files.length, true);
+  e.setUint32(12, cdSize, true);
+  e.setUint32(16, offset, true);
+
+  return new Blob(parts.concat(central, [eocd]),
+    { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+
+function xmlEscape(s){
+  return String(s).replace(/[&<>"']/g, function(ch){
+    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&apos;' }[ch];
+  }).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');   // 控制字元會讓 Excel 拒開
+}
+
+function colName(i){
+  var s = '';
+  i += 1;
+  while (i > 0){
+    var r = (i - 1) % 26;
+    s = String.fromCharCode(65 + r) + s;
+    i = Math.floor((i - 1) / 26);
+  }
+  return s;
+}
+
+/* rows：二維陣列，數字寫成數值格、其餘寫成文字 */
+function sheetXml(rows){
+  var body = rows.map(function(row, r){
+    var cells = row.map(function(v, c){
+      var ref = colName(c) + (r + 1);
+      if (typeof v === 'number' && isFinite(v)){
+        return '<c r="' + ref + '"><v>' + v + '</v></c>';
+      }
+      return '<c r="' + ref + '" t="inlineStr"><is><t xml:space="preserve">' +
+             xmlEscape(v == null ? '' : v) + '</t></is></c>';
+    }).join('');
+    return '<row r="' + (r + 1) + '">' + cells + '</row>';
+  }).join('');
+
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+    '<sheetData>' + body + '</sheetData></worksheet>';
+}
+
+function buildWorkbook(sheets){
+  var files = [];
+
+  files.push({ name: '[Content_Types].xml', xml:
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+    '<Default Extension="xml" ContentType="application/xml"/>' +
+    '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+    sheets.map(function(s, i){
+      return '<Override PartName="/xl/worksheets/sheet' + (i + 1) + '.xml" ' +
+             'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
+    }).join('') +
+    '</Types>' });
+
+  files.push({ name: '_rels/.rels', xml:
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
+    '</Relationships>' });
+
+  files.push({ name: 'xl/workbook.xml', xml:
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" ' +
+    'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>' +
+    sheets.map(function(s, i){
+      return '<sheet name="' + xmlEscape(s.name) + '" sheetId="' + (i + 1) + '" r:id="rId' + (i + 1) + '"/>';
+    }).join('') +
+    '</sheets></workbook>' });
+
+  files.push({ name: 'xl/_rels/workbook.xml.rels', xml:
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    sheets.map(function(s, i){
+      return '<Relationship Id="rId' + (i + 1) + '" ' +
+             'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" ' +
+             'Target="worksheets/sheet' + (i + 1) + '.xml"/>';
+    }).join('') +
+    '</Relationships>' });
+
+  sheets.forEach(function(s, i){
+    files.push({ name: 'xl/worksheets/sheet' + (i + 1) + '.xml', xml: sheetXml(s.rows) });
+  });
+
+  return makeZip(files);
+}
+
+function downloadBlob(blob, filename){
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+}
+
+function fileStamp(){
+  var d = new Date();
+  function p(n){ return (n < 10 ? '0' : '') + n; }
+  return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) +
+         '_' + p(d.getHours()) + p(d.getMinutes());
+}
+
+function safeName(s){ return String(s).replace(/[\\/:*?"<>|\s]/g, '_').slice(0, 40); }
+function localTime(v){
+  var d = new Date(v); if (isNaN(d)) return '';
+  function p(n){ return (n < 10 ? '0' : '') + n; }
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+}
+
+/* 匯出要撈「全部」：包含已從牆上移除的，也不受畫面 1000 筆上限影響
+   （PostgREST 一次最多回 1000 筆，所以分頁撈） */
+async function fetchAllMessages(){
+  if (!sb){
+    var demo = Array.from(Store.messages.values()).filter(function(m){ return m.id < 0; });
+    return localLoad('msgs', []).concat(demo);
+  }
+  var all = [], page = 0, SIZE = 1000;
+  while (true){
+    var r = await sb.from('wall_messages').select('id,name,body,mood,keyword,hidden,created_at')
+      .eq('room', ROOM).order('id').range(page * SIZE, page * SIZE + SIZE - 1);
+    if (r.error) throw r.error;
+    all = all.concat(r.data);
+    if (r.data.length < SIZE) return all;
+    page++;
+  }
+}
+
+async function exportExcel(){
+  var btn = $('tExcel'), label = btn.textContent;
+  btn.disabled = true; btn.textContent = '整理中…';
+  try {
+    var rows = await fetchAllMessages();
+    if (!rows.length){ alert('目前還沒有留言可以下載'); return; }
+    var moodName = {}; MOODS.forEach(function(m){ moodName[m.e] = m.t; });
+
+    var msgSheet = [['序號', '送出時間', '姓名', '留言內容', '心情', '心情說明', '關鍵詞', '狀態']];
+    rows.forEach(function(m, i){
+      msgSheet.push([i + 1, localTime(m.created_at), m.name || '', m.body, m.mood || '',
+                     moodName[m.mood] || '', m.keyword || '', m.hidden ? '已從牆上移除' : '顯示中']);
+    });
+
+    var wordSheet = [['名次', '關鍵詞', '出現次數']];
+    countWords(rows.filter(function(m){ return !m.hidden; })).forEach(function(w, i){ wordSheet.push([i + 1, w.text, w.n]); });
+
+    var moodSheet = [['心情', '說明', '累計次數']], sum = 0;
+    MOODS.forEach(function(m){ var n = Store.totals[m.e] || 0; sum += n; moodSheet.push([m.e, m.t, n]); });
+    moodSheet.push(['', '合計', sum]);
+
+    var shown = rows.filter(function(m){ return !m.hidden; }).length;
+    var info = [['活動', TITLE], ['場次代號', ROOM], ['匯出時間', localTime(new Date())],
+                ['留言總數', rows.length], ['牆上顯示中', shown], ['已移除', rows.length - shown], ['心情互動總次數', sum]];
+
+    downloadBlob(buildWorkbook([
+      { name: '留言', rows: msgSheet },
+      { name: '關鍵詞統計', rows: wordSheet },
+      { name: '心情統計', rows: moodSheet },
+      { name: '活動摘要', rows: info }
+    ]), '留言牆_' + safeName(TITLE) + '_' + fileStamp() + '.xlsx');
+  } catch (e){
+    alert('下載失敗：' + (e && e.message ? e.message : e));
+  } finally {
+    btn.disabled = false; btn.textContent = label;
+  }
+}
+
+/* 文字雲存成 JPG：不是截圖，是照每個詞「目標」的位置與字級在 canvas 上以 3 倍解析度重畫。
+   讀 style 而不是 offsetLeft —— 字還在 transition 途中時，offset 量到的是半路的值。 */
+function exportCloudImage(){
+  var box = $('wallCloud');
+  var words = [].slice.call(box.querySelectorAll('.w'));
+  if (!words.length){ alert('文字雲還沒有內容'); return; }
+  var W = box.clientWidth, H = box.clientHeight, S = 3, TOP = 70, FOOT = 40;
+  var cv = document.createElement('canvas');
+  cv.width = Math.round(W * S); cv.height = Math.round((H + TOP + FOOT) * S);
+  var g = cv.getContext('2d'); g.scale(S, S);
+  g.fillStyle = '#F6F0E6'; g.fillRect(0, 0, W, H + TOP + FOOT);   // JPG 沒有透明，底色要自己鋪
+
+  // 刊頭：紅色印章「厝」＋活動名稱
+  g.fillStyle = '#A61B22'; g.fillRect(16, 16, 38, 38);
+  g.fillStyle = '#F6F0E6'; g.font = '900 24px "Noto Serif TC",serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText('厝', 35, 36);
+  g.fillStyle = '#2B2622'; g.textAlign = 'left'; g.font = '900 19px "Noto Serif TC",serif';
+  g.fillText(TITLE, 64, 28);
+  g.fillStyle = '#5E554D'; g.font = '500 12px "Noto Sans TC",sans-serif';
+  g.fillText('大家的關鍵詞 · 出現越多次字越大', 64, 47);
+  g.fillStyle = '#D9CCB8'; g.fillRect(16, TOP - 6, W - 32, 1);
+
+  words.forEach(function(el){
+    var size = parseFloat(el.style.fontSize), x = parseFloat(el.style.left), y = parseFloat(el.style.top) + TOP;
+    g.save();
+    g.globalAlpha = parseFloat(el.style.opacity) || 1;
+    g.fillStyle = el.style.color;
+    g.font = el.style.fontWeight + ' ' + size + 'px "Noto Serif TC","Songti TC",serif';
+    g.textBaseline = 'middle';
+    if (el.classList.contains('v')){
+      g.textAlign = 'center';
+      el.textContent.split('').forEach(function(ch, i){ g.fillText(ch, x + size * 0.56, y + size * 1.06 * (i + 0.5)); });
+    } else {
+      g.textAlign = 'left';
+      g.fillText(el.textContent, x, y + size * 0.5);
+    }
+    g.restore();
+  });
+
+  g.fillStyle = '#5E554D'; g.font = '500 12px "Noto Sans TC",sans-serif'; g.textBaseline = 'middle';
+  g.textAlign = 'left'; g.fillText(localTime(new Date()).slice(0, 16), 16, H + TOP + FOOT / 2);
+  g.textAlign = 'right'; g.fillText('共 ' + Store.messages.size + ' 則留言', W - 16, H + TOP + FOOT / 2);
+
+  cv.toBlob(function(blob){
+    if (blob) downloadBlob(blob, '文字雲_' + safeName(TITLE) + '_' + fileStamp() + '.jpg');
+  }, 'image/jpeg', 0.92);
+}
+
+/* ---------- QR ---------- */
+function guestUrl(){
+  var u = new URL(location.href);
+  ['wall', 'demo', 'admin'].forEach(function(k){ u.searchParams.delete(k); });
+  return u.toString();
+}
+function padQuietZone(src){
+  var q = Math.round(src.width * 0.16), c = document.createElement('canvas');
+  c.width = src.width + q * 2; c.height = src.height + q * 2;
+  var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+  g.imageSmoothingEnabled = false; g.drawImage(src, q, q);
+  return c;
+}
+function drawQr(){
+  var box = $('qr'), url = guestUrl();
+  if (location.protocol === 'file:' || !window.QRCode){
+    box.innerHTML = '<div class="ph">上線後<br>這裡會出現<br>QR Code</div>';
+    return;
+  }
+  var tmp = document.createElement('div');
+  new QRCode(tmp, { text: url, width: 1024, height: 1024, colorDark: '#2B2622', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+  var src = tmp.querySelector('canvas');
+  var c = padQuietZone(src);
+  box.innerHTML = ''; box.appendChild(c);
+  box.appendChild(document.createTextNode('掃碼留言'));
+  box.onclick = function(){
+    var big = document.createElement('div'); big.className = 'qrbig';
+    var cc = padQuietZone(src);
+    big.appendChild(cc);
+    var p = document.createElement('p'); p.textContent = '掃描 QR Code，寫下你的感受'; big.appendChild(p);
+    big.onclick = function(){ big.remove(); };
+    document.body.appendChild(big);
+  };
+}
+
+/* ============================================================ */
+if (IS_WALL) initWall(); else initGuest();
+</script>
+</body>
+</html>
