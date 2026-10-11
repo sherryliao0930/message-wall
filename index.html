@@ -56,6 +56,10 @@ button{font:inherit;color:inherit;cursor:pointer}
   padding:1px 7px;border-radius:999px;opacity:0;transform:scale(.6);transition:opacity .2s,transform .2s;pointer-events:none}
 .mood .combo.show{opacity:1;transform:scale(1)}
 .pop{position:fixed;pointer-events:none;font-size:30px;z-index:50;will-change:transform,opacity}
+.goal{margin:6px 2px 0;padding:10px 12px;border-radius:12px;background:#FBEDEA;color:var(--seal-dark);font-size:13.5px;line-height:1.55}
+.goal b{font-family:var(--serif);font-size:1.15em}
+.goal .track{display:block;height:5px;border-radius:3px;background:rgba(166,27,34,.15);margin-top:7px;overflow:hidden}
+.goal .track i{display:block;height:100%;background:var(--seal);border-radius:3px;transition:width .3s ease}
 .tapnote{font-size:13px;color:var(--ink-2);margin:10px 2px 0;min-height:1.4em}
 
 .field{display:block;margin-top:12px}
@@ -132,6 +136,8 @@ button{font:inherit;color:inherit;cursor:pointer}
 .meter{display:flex;flex-direction:column;align-items:center;font-size:max(12px,.85vw);color:var(--ink-2)}
 .meter .e{font-size:max(22px,1.9vw);line-height:1.2;display:inline-block}
 .meter b{font-family:var(--serif);color:var(--ink);font-size:1.15em;font-variant-numeric:tabular-nums}
+.meter .bar{width:78%;height:4px;border-radius:2px;background:var(--line);margin-top:3px;overflow:hidden}
+.meter .bar i{display:block;height:100%;width:0;background:var(--seal);border-radius:2px;transition:width .5s ease}
 .meter .e.bump{animation:bump .5s cubic-bezier(.3,1.6,.5,1)}
 @keyframes bump{0%{transform:scale(1)}40%{transform:scale(1.45)}100%{transform:scale(1)}}
 .qr{text-align:center;font-size:max(11px,.8vw);color:var(--ink-2);cursor:zoom-in}
@@ -178,10 +184,47 @@ button{font:inherit;color:inherit;cursor:pointer}
 .qrbig p{font-size:3vh;margin:0}
 
 @media (max-aspect-ratio:1/1){
-  /* 直立螢幕或手機誤開牆：上下排 */
-  .w-body{grid-template-columns:1fr;grid-template-rows:1fr 42vh}
+  /* 直立的平板或手機開牆：留言在上、文字雲與心情在下 */
+  .w-body{grid-template-columns:1fr;grid-template-rows:1fr 40vh}
   .aside{border-left:0;border-top:1px solid var(--line)}
   .w-head .q{display:none}
+  .meter{font-size:12px}
+  .meter .e{font-size:clamp(22px,3.6vw,34px)}
+  .qr canvas,.qr img,.qr .ph{width:min(22vw,15vh)}
+}
+@media (max-width:760px){
+  .w-head{gap:10px;padding:10px 14px}
+  .w-head .seal{width:36px;height:36px;min-width:36px;min-height:36px;font-size:20px}
+  .w-head h1{font-size:18px;line-height:1.3}
+  .w-head .stat{gap:10px;font-size:12px}
+  .w-head .stat b{font-size:1.25em}
+  .w-head .live span{display:none}
+  .a-title{padding:10px 14px 2px;font-size:15px}
+  .a-title small{display:none}
+  .a-foot{padding:10px 14px 12px}
+  .tools{left:12px;right:12px;bottom:12px;flex-wrap:wrap;justify-content:flex-end}
+  .tools button{padding:9px 13px}
+}
+.thanks .t{font-size:min(7vh,12vw)}
+.thanks .s{font-size:min(2.6vh,4vw)}
+/* 平板以上的來賓頁：版面放寬、字放大，拿在手上讀起來舒服 */
+@media (min-width:700px){
+  #guest{max-width:720px;padding:32px 32px 56px}
+  .g-head .seal{width:52px;height:52px;font-size:28px}
+  .g-head h1{font-size:28px}
+  .g-sec{padding-top:28px}
+  .g-sec h2{font-size:21px}
+  .g-sec h2 small{font-size:15px}
+  .moods{gap:12px}
+  .mood{padding:14px 0 12px;border-radius:18px}
+  .mood .e{font-size:44px}
+  .mood .t{font-size:14px}
+  .tapnote,.goal,.picked{font-size:15px}
+  .field label{font-size:15px}
+  .field textarea,.field input{font-size:18px;padding:14px 16px}
+  .field textarea{min-height:140px}
+  .send{font-size:20px;padding:16px}
+  .g-cloud{height:420px}
 }
 @media (prefers-reduced-motion:reduce){
   .card-in,.blob,.empty b{animation:none!important}
@@ -202,6 +245,7 @@ button{font:inherit;color:inherit;cursor:pointer}
     <h2>此刻的心情 <small>可以一直按，牆上會湧現！</small></h2>
     <div class="moods" id="moods"></div>
     <p class="tapnote" id="tapNote">點一下選心情，連按就是替自己和隊友加油</p>
+    <p class="goal" id="goal">每個心情全場每滿 50 下，大螢幕就會放大說「謝謝大家」還會灑彩帶 🎉</p>
   </section>
 
   <section class="g-sec">
@@ -260,7 +304,6 @@ button{font:inherit;color:inherit;cursor:pointer}
     </aside>
   </div>
   <div id="fx"></div>
-  <canvas id="confetti"></canvas>
   <div class="tools" id="tools">
     <button id="tExcel">下載留言 Excel</button>
     <button id="tImg">下載文字雲圖片</button>
@@ -269,6 +312,8 @@ button{font:inherit;color:inherit;cursor:pointer}
     <button id="tFull">全螢幕</button>
   </div>
 </div>
+
+<canvas id="confetti"></canvas>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
@@ -651,7 +696,7 @@ function initGuest(){
   paintLive($('gLive'));
 
   var selected = '';
-  var pending = {}, flushTimer = 0, myTaps = 0;
+  var pending = {}, inflight = {}, flushTimer = 0, myTaps = 0;
   var combo = {};   // emoji → { n, timer, el }
 
   MOODS.forEach(function(m){
@@ -675,6 +720,8 @@ function initGuest(){
 
     pending[m.e] = (pending[m.e] || 0) + 1;
     myTaps++;
+    lastMood = m;
+    paintGoal();
     $('tapNote').textContent = '你已經送出 ' + myTaps + ' 個心情 · 繼續按，牆上會一起湧出來';
     if (!flushTimer) flushTimer = setTimeout(flush, 500);
 
@@ -683,6 +730,31 @@ function initGuest(){
     clearTimeout(c.timer);
     c.timer = setTimeout(function(){ c.n = 0; c.el.classList.remove('show'); }, 1400);
   }
+
+  /* 選中的心情離下一次「謝謝大家」還差幾下：全場累計＋自己還沒送出的 */
+  var lastMood = null, guestReached = {};
+  function liveTotal(e){ return (Store.totals[e] || 0) + (pending[e] || 0) + (inflight[e] || 0); }
+  function paintGoal(){
+    if (!lastMood) return;
+    var n = liveTotal(lastMood.e), left = EVERY - n % EVERY;
+    var g = $('goal'); g.innerHTML = '';
+    g.append(lastMood.e + ' ' + lastMood.t + ' 全場已累積 ', Object.assign(document.createElement('b'), { textContent: n }),
+             ' 次，再 ', Object.assign(document.createElement('b'), { textContent: left }), ' 下就會在大螢幕放大說謝謝 🎉');
+    var tr = document.createElement('span'); tr.className = 'track';
+    var fill = document.createElement('i'); fill.style.width = (n % EVERY) / EVERY * 100 + '%';
+    tr.appendChild(fill); g.appendChild(tr);
+  }
+  Store.on('react', function(x){
+    if (!x){ MOODS.forEach(function(m){ guestReached[m.e] = milestoneOf(Store.totals[m.e] || 0); }); return; }
+    if (inflight[x.emoji]) inflight[x.emoji] = Math.max(0, inflight[x.emoji] - x.n);
+    var ms = milestoneOf(Store.totals[x.emoji] || 0);
+    if (ms > (guestReached[x.emoji] || 0)){
+      guestReached[x.emoji] = ms;
+      toast('🎉 ' + x.emoji + ' 滿 ' + ms + ' 次了！快看大螢幕');
+      confetti(2200, 90);
+    }
+    paintGoal();
+  });
 
   function popEmoji(e, b){
     var r = b.getBoundingClientRect();
@@ -705,6 +777,7 @@ function initGuest(){
       var n = pending[e]; if (!n) return;
       var send = Math.min(n, 40);
       pending[e] = n - send;
+      if (sb) inflight[e] = (inflight[e] || 0) + send;
       api.react(e, send).catch(function(err){ console.warn(err); });
     });
     if (Object.keys(pending).some(function(e){ return pending[e] > 0; })) flushTimer = setTimeout(flush, 500);
@@ -764,7 +837,7 @@ function initWall(){
   // 心情能量
   MOODS.forEach(function(m){
     var d = document.createElement('div'); d.className = 'meter'; d.dataset.e = m.e;
-    d.innerHTML = '<span class="e"></span><b>0</b>';
+    d.innerHTML = '<span class="e"></span><b>0</b><span class="bar"><i></i></span>';
     d.querySelector('.e').textContent = m.e;
     d.title = m.t;
     $('meters').appendChild(d);
@@ -813,7 +886,10 @@ function updateStats(){
 }
 function updateMeters(bumpEmoji){
   document.querySelectorAll('.meter').forEach(function(d){
-    d.querySelector('b').textContent = (Store.totals[d.dataset.e] || 0).toLocaleString();
+    var n = Store.totals[d.dataset.e] || 0;
+    d.querySelector('b').textContent = n.toLocaleString();
+    d.querySelector('.bar i').style.width = (n % EVERY) / EVERY * 100 + '%';
+    d.title = '再 ' + (EVERY - n % EVERY) + ' 次就會放大說謝謝';
     if (d.dataset.e === bumpEmoji){
       var e = d.querySelector('.e'); e.classList.remove('bump'); void e.offsetWidth; e.classList.add('bump');
     }
@@ -821,7 +897,7 @@ function updateMeters(bumpEmoji){
 }
 
 /* ---------- 留言卡：不排成一條條，而是散落在舞台上各自呼吸 ---------- */
-function scale(){ return clamp(stage.clientWidth / 1200, 0.55, 1.6); }
+function scale(){ return clamp(stage.clientWidth / 1200, stage.clientWidth < 800 ? 0.68 : 0.55, 1.6); }
 function tierFor(len){
   // 短句寫得大，像一句標語；長段落縮小、拉窄，讀起來不累
   if (len <= 10) return { fs: 36, mw: 0.50 };
@@ -835,7 +911,8 @@ function buildCard(m, fresh){
   var el = document.createElement('div');
   el.className = 'card c' + (hash(String(m.id)) % 6) + (fresh ? ' fresh' : '');
   el.style.fontSize = (tier.fs * k) + 'px';
-  el.style.maxWidth = (stage.clientWidth * tier.mw) + 'px';
+  var mw = stage.clientWidth < 800 ? Math.min(0.88, tier.mw * 1.7) : tier.mw;   // 手機、直立平板上卡片放寬
+  el.style.maxWidth = (stage.clientWidth * mw) + 'px';
   el.style.visibility = 'hidden';
   var inner = document.createElement('div'); inner.className = 'card-in';
   inner.style.setProperty('--rot', rand(-2.2, 2.2).toFixed(2) + 'deg');
@@ -855,7 +932,8 @@ function buildCard(m, fresh){
 /* 找一個空位：隨機撒 120 個候選點，挑「離其他卡片最遠」的那個 ——
    這樣卡片之間留有空氣，畫面才有疏密、有呼吸，而不是塞滿。 */
 function findSpot(w, h, extra){
-  var others = extra ? visible.concat(extra) : visible.concat(stickers);
+  // 留言卡只避開其他卡片；emoji 在卡片後面，不該擋住留言上牆
+  var others = extra ? visible.concat(extra) : visible;
   var W = stage.clientWidth, H = stage.clientHeight, pad = 18 * scale(), best = null, bestD = -1;
   if (w > W - pad * 2 || h > H - pad * 2) return null;
   for (var i = 0; i < 120; i++){
@@ -1007,13 +1085,13 @@ function fadeAway(rec){
     { duration: 500, easing: 'ease-out', fill: 'forwards' }).onfinish = function(){ rec.el.remove(); };
 }
 
-/* ---------- 里程碑：某個心情累計滿 50、100、200、300、500、800、1000…次 ----------
+/* ---------- 里程碑：每個心情每累計滿 50 次（50、100、150…）就慶祝一次 ----------
    那個 emoji 從一般大小長到滿版那麼大，下面寫「謝謝大家！」，全螢幕灑彩帶。
    工具列的「謝謝大家」按鈕可以在活動最後手動謝幕（用全場最多的那個 emoji）。 */
-var MILESTONES = [50, 100, 200, 300, 500, 800, 1000, 1500, 2000, 3000, 5000];
+var EVERY = 50;
 var reached = {}, celebrating = false, celebrateQueue = [];
 
-function milestoneOf(n){ var r = 0; MILESTONES.forEach(function(m){ if (n >= m) r = m; }); return r; }
+function milestoneOf(n){ return Math.floor(n / EVERY) * EVERY; }
 function syncMilestones(){ MOODS.forEach(function(m){ reached[m.e] = milestoneOf(Store.totals[m.e] || 0); }); }
 function topEmoji(){
   var best = MOODS[0].e, n = -1;
@@ -1134,10 +1212,12 @@ document.addEventListener('click', closeMenu);
 /* ---------- 工具列、全螢幕、示範 ---------- */
 function initTools(){
   var tools = $('tools'), t = 0;
-  document.addEventListener('mousemove', function(){
+  function reveal(ev){
     tools.classList.add('show'); clearTimeout(t);
-    t = setTimeout(function(){ tools.classList.remove('show'); }, 2500);
-  });
+    t = setTimeout(function(){ tools.classList.remove('show'); }, ev.pointerType === 'mouse' ? 2500 : 5000);
+  }
+  document.addEventListener('pointermove', function(ev){ if (ev.pointerType === 'mouse') reveal(ev); });
+  document.addEventListener('pointerdown', reveal);
   $('tFull').onclick = function(){
     if (document.fullscreenElement) document.exitFullscreen();
     else document.documentElement.requestFullscreen().catch(function(){});
