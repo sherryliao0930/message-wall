@@ -44,12 +44,12 @@ button{font:inherit;color:inherit;cursor:pointer}
 .g-sec h2{font-family:var(--serif);font-size:17px;margin:0 0 4px;display:flex;align-items:baseline;gap:8px}
 .g-sec h2 small{font-family:var(--sans);font-weight:400;font-size:13px;color:var(--ink-2)}
 
-.moods{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+.moods{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-top:12px}
 .mood{position:relative;border:1px solid var(--line);background:#FFFCF7;border-radius:16px;padding:10px 0 8px;
   display:flex;flex-direction:column;align-items:center;gap:2px;touch-action:manipulation;
   -webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;transition:transform .08s,border-color .2s,background .2s}
-.mood .e{font-size:34px;line-height:1.15}
-.mood .t{font-size:12px;color:var(--ink-2)}
+.mood .e{font-size:30px;line-height:1.15}
+.mood .t{font-size:11px;color:var(--ink-2);white-space:nowrap}
 .mood:active{transform:scale(.92)}
 .mood.sel{border-color:var(--seal);background:#FBEDEA;box-shadow:inset 0 0 0 1px var(--seal)}
 .mood .combo{position:absolute;top:-9px;right:-6px;background:var(--seal);color:#fff;font-size:12px;font-weight:700;
@@ -289,9 +289,8 @@ var TITLE = P.get('title') || '2026牽手行厝邊闖關活動';
 var QUESTION = P.get('q') || '此刻，你想說些什麼？';
 
 var MOODS = [
-  { e:'😄', t:'好喜樂' }, { e:'🙌', t:'歡呼' }, { e:'🤩', t:'好好玩' },
-  { e:'🥳', t:'超有成就感' }, { e:'😍', t:'好喜歡' }, { e:'🤗', t:'抱抱' },
-  { e:'😘', t:'飛吻' }, { e:'😉', t:'眨眼' }, { e:'😚', t:'瞇眼親親' }
+  { e:'😄', t:'好喜樂' }, { e:'🤩', t:'好好玩' }, { e:'🥳', t:'超有成就感' }, { e:'😍', t:'好喜歡' }, { e:'🤗', t:'抱抱' },
+  { e:'😘', t:'飛吻' },   { e:'😉', t:'眨眼' },   { e:'😚', t:'瞇眼親親' },   { e:'❣️', t:'心嘆號' }, { e:'💯', t:'一百分' }
 ];
 var MOOD_SET = new Set(MOODS.map(function(m){ return m.e; }));
 
@@ -1154,7 +1153,7 @@ function initTools(){
 var demoTimer = 0, demoId = -1, demoLine = 0;
 var DEMO_LINES = [
   ['第一次跟鄰居一起闖關，好好玩！', '好玩', '🤩', '小安'],
-  ['謝謝每一關的關主，辛苦了！', '感謝', '🙌', null],
+  ['謝謝每一關的關主，辛苦了！', '感謝', '❣️', null],
   ['終於集滿印章了', '成就感', '🥳', '阿哲'],
   ['牽著阿嬤的手一起走完全程', '溫暖', '🤗', '小芬'],
   ['第三關好難，差點過不了，還好隊友超強，最後一起解出來的那一刻真的很感動', '團隊', '😍', '陳老師'],
@@ -1162,7 +1161,7 @@ var DEMO_LINES = [
   ['孩子玩到不想回家', '歡樂', '😄', 'Mia'],
   ['過關了！！', '過關', '🥳', '阿凱'],
   ['好緊張但好刺激', '刺激', '😉', null],
-  ['期待明年再來闖關', '期待', '🙌', 'Joyce'],
+  ['期待明年再來闖關', '期待', '💯', 'Joyce'],
   ['厝邊頭尾作伙，感情更好了', '厝邊', '😚', '林先生'],
   ['全家一起拿到獎品了', '開心', '🥳', null],
   ['謝謝你們讓社區這麼有溫度', '溫暖', '😘', 'Amy'],
