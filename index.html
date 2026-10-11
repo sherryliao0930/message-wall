@@ -60,6 +60,18 @@ button{font:inherit;color:inherit;cursor:pointer}
 .goal b{font-family:var(--serif);font-size:1.15em}
 .goal .track{display:block;height:5px;border-radius:3px;background:rgba(166,27,34,.15);margin-top:7px;overflow:hidden}
 .goal .track i{display:block;height:100%;background:var(--seal);border-radius:3px;transition:width .3s ease}
+.photo-pick{display:flex;align-items:center;gap:12px;margin-top:12px}
+.photo-btn{display:inline-flex;align-items:center;gap:8px;border:1px dashed var(--seal);color:var(--seal);background:#FFFCF7;
+  border-radius:12px;padding:11px 16px;font-size:15px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.photo-btn input{display:none}
+.photo-prev{position:relative;display:none}
+.photo-prev.show{display:block}
+.photo-prev img{display:block;height:72px;max-width:120px;object-fit:cover;border-radius:10px;box-shadow:0 0 0 1px var(--line)}
+.photo-prev button{position:absolute;top:-8px;right:-8px;width:24px;height:24px;border-radius:50%;border:0;background:var(--ink);color:#fff;font-size:14px;line-height:24px;padding:0}
+.photo-note{font-size:12.5px;color:var(--ink-2)}
+.photo-big{position:fixed;inset:0;z-index:30;background:rgba(43,38,34,.86);display:grid;place-items:center;cursor:zoom-out;padding:4vh 4vw}
+.photo-big img{max-width:100%;max-height:84vh;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.photo-big p{color:#F6F0E6;font-family:var(--serif);font-size:min(3.2vh,5vw);text-align:center;margin:2vh 0 0;max-width:80vw}
 .tapnote{font-size:13px;color:var(--ink-2);margin:10px 2px 0;min-height:1.4em}
 
 .field{display:block;margin-top:12px}
@@ -110,6 +122,12 @@ button{font:inherit;color:inherit;cursor:pointer}
   animation:breathe 8s ease-in-out infinite;transform-origin:50% 60%;cursor:pointer}
 .card.c1 .card-in{background:var(--c1)} .card.c2 .card-in{background:var(--c2)}
 .card.c3 .card-in{background:var(--c3)} .card.c4 .card-in{background:var(--c4)} .card.c5 .card-in{background:var(--c5)}
+/* 圖文卡：照片在上、文字在下，像一張沖洗出來的相片小卡 */
+.card .photo{display:block;width:100%;object-fit:cover;border-radius:14px;margin:.15em 0 .6em;background:#E9E0D2;
+  box-shadow:0 1px 0 rgba(255,255,255,.6) inset,0 6px 14px -8px rgba(43,38,34,.45)}
+.card.has-photo .card-in{padding:.75em .75em .8em}
+.card.has-photo .body{padding:0 .25em}
+.card.has-photo .who{padding:0 .3em}
 .card .body{margin:0;font-family:var(--serif);font-weight:700;line-height:1.5;word-break:break-word;white-space:pre-wrap}
 .card .who{margin-top:.45em;font-size:.56em;color:var(--ink-2);font-family:var(--sans);display:flex;gap:.6em;align-items:center}
 .card .who .kw{border:1px solid currentColor;border-radius:999px;padding:0 .7em;font-size:.95em}
@@ -224,6 +242,8 @@ button{font:inherit;color:inherit;cursor:pointer}
   .field textarea,.field input{font-size:18px;padding:14px 16px}
   .field textarea{min-height:140px}
   .send{font-size:20px;padding:16px}
+  .photo-btn{font-size:17px;padding:13px 20px}
+  .photo-prev img{height:96px;max-width:160px}
   .g-cloud{height:420px}
 }
 @media (prefers-reduced-motion:reduce){
@@ -264,6 +284,11 @@ button{font:inherit;color:inherit;cursor:pointer}
           <label for="kw">用一個詞形容今天</label>
           <input id="kw" maxlength="8" placeholder="例如：好好玩">
         </div>
+      </div>
+      <div class="photo-pick">
+        <label class="photo-btn">📷 加一張照片<input type="file" id="photo" accept="image/*"></label>
+        <div class="photo-prev" id="photoPrev"><img alt="照片預覽"><button type="button" id="photoDel" aria-label="移除照片">✕</button></div>
+        <span class="photo-note" id="photoNote">選填，可拍照或從相簿選</span>
       </div>
       <p class="picked" id="picked">還沒選心情（上面點一下就會附在留言上）</p>
       <button class="send" id="send" type="submit">送上牆</button>
@@ -381,7 +406,7 @@ async function initStore(){
   if (window.supabase && window.supabase.createClient){
     try {
       sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false } });
-      var r = await sb.from('wall_messages').select('id,name,body,mood,keyword,created_at')
+      var r = await sb.from('wall_messages').select('*')
         .eq('room', ROOM).eq('hidden', false).order('id', { ascending: false }).limit(1000);
       if (r.error) throw r.error;
       var t = await sb.from('wall_reaction_totals').select('emoji,total').eq('room', ROOM);
@@ -421,7 +446,7 @@ async function resync(){
   if (!sb) return;
   var last = 0;
   Store.messages.forEach(function(m){ if (m.id > last) last = m.id; });
-  var r = await sb.from('wall_messages').select('id,name,body,mood,keyword,created_at')
+  var r = await sb.from('wall_messages').select('*')
     .eq('room', ROOM).eq('hidden', false).gt('id', last).order('id').limit(200);
   if (!r.error) r.data.forEach(function(m){ acceptMessage(m, true); });
 }
@@ -445,11 +470,38 @@ function initLocal(){
   setMode('local');
 }
 
+/* 手機照片動輒 3–8MB：上傳前先縮到長邊 1280px、轉 JPG（約 150–400KB），
+   投影夠清楚，也不會讓現場網路塞車。createImageBitmap 會照 EXIF 方向轉正。 */
+async function compressPhoto(file){
+  var src;
+  try { src = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
+  catch (e){
+    src = await new Promise(function(ok, fail){
+      var im = new Image(); im.onload = function(){ ok(im); }; im.onerror = fail; im.src = URL.createObjectURL(file);
+    });
+  }
+  var w = src.width, h = src.height, k = Math.min(1, 1280 / Math.max(w, h));
+  var cv = document.createElement('canvas');
+  cv.width = Math.round(w * k); cv.height = Math.round(h * k);
+  cv.getContext('2d').drawImage(src, 0, 0, cv.width, cv.height);
+  return new Promise(function(ok){ cv.toBlob(ok, 'image/jpeg', 0.82); });
+}
+
+async function uploadPhoto(blob){
+  if (!sb){   // 本機示範模式：直接用 data URL
+    return new Promise(function(ok){ var fr = new FileReader(); fr.onload = function(){ ok(fr.result); }; fr.readAsDataURL(blob); });
+  }
+  var path = ROOM.replace(/[^\w-]/g, '_') + '/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.jpg';
+  var r = await sb.storage.from('wall-photos').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+  if (r.error) throw r.error;
+  return sb.storage.from('wall-photos').getPublicUrl(path).data.publicUrl;
+}
+
 var api = {
   addMessage: async function(m){
     if (sb){
       var r = await sb.from('wall_messages').insert(Object.assign({ room: ROOM }, m))
-        .select('id,name,body,mood,keyword,created_at').single();
+        .select('*').single();
       if (r.error) throw r.error;
       acceptMessage(r.data, true);
       return;
@@ -788,6 +840,27 @@ function initGuest(){
   try { $('name').value = localStorage.getItem('wall:name') || ''; } catch (e){}
   $('body').addEventListener('input', function(){ $('bodyCount').textContent = $('body').value.length; });
 
+  var photoBlob = null;
+  function clearPhoto(){
+    photoBlob = null; $('photo').value = '';
+    $('photoPrev').classList.remove('show'); $('photoNote').classList.remove('hide');
+  }
+  $('photo').addEventListener('change', async function(){
+    var f = this.files && this.files[0];
+    if (!f) return;
+    if (!/^image\//.test(f.type)){ toast('請選擇照片檔'); clearPhoto(); return; }
+    $('photoNote').textContent = '處理中…';
+    try {
+      photoBlob = await compressPhoto(f);
+      $('photoPrev').querySelector('img').src = URL.createObjectURL(photoBlob);
+      $('photoPrev').classList.add('show'); $('photoNote').classList.add('hide');
+    } catch (e){
+      console.warn(e); toast('這張照片讀不出來，換一張試試'); clearPhoto();
+    }
+    $('photoNote').textContent = '選填，可拍照或從相簿選';
+  });
+  $('photoDel').addEventListener('click', clearPhoto);
+
   var lastSent = 0;
   $('form').addEventListener('submit', async function(ev){
     ev.preventDefault();
@@ -796,16 +869,19 @@ function initGuest(){
     if (Date.now() - lastSent < 6000){ toast('慢慢來，等幾秒再送下一則 ☺'); return; }
     var name = $('name').value.trim().slice(0, 12);
     try { localStorage.setItem('wall:name', name); } catch (e){}
-    $('send').disabled = true; $('send').textContent = '送出中…';
+    $('send').disabled = true; $('send').textContent = photoBlob ? '照片上傳中…' : '送出中…';
     try {
-      await api.addMessage({ name: name || null, body: body.slice(0, 120), mood: selected || null,
-                             keyword: $('kw').value.trim().slice(0, 8) || null });
+      var msg = { name: name || null, body: body.slice(0, 120), mood: selected || null,
+                  keyword: $('kw').value.trim().slice(0, 8) || null };
+      if (photoBlob) msg.image_url = await uploadPhoto(photoBlob);
+      await api.addMessage(msg);
       lastSent = Date.now();
       $('body').value = ''; $('kw').value = ''; $('bodyCount').textContent = '0';
+      clearPhoto();
       toast('已經飛上牆了 ✨');
     } catch (e){
       console.warn(e);
-      toast('沒送出去，請再試一次');
+      toast(photoBlob ? '照片沒傳上去，可以先拿掉照片再送一次' : '沒送出去，請再試一次');
     } finally {
       $('send').disabled = false; $('send').textContent = '送上牆';
     }
@@ -906,19 +982,50 @@ function tierFor(len){
   return { fs: 19, mw: 0.31 };
 }
 
+/* 照片要先載好、知道長寬比，才能算出卡片多大、擺在哪 */
+var photoCache = new Map();   // url → { w, h } 或 'loading' / 'error'
+function photoReady(m, then){
+  var st = photoCache.get(m.image_url);
+  if (st && st !== 'loading') return true;
+  if (!st){
+    photoCache.set(m.image_url, 'loading');
+    var im = new Image();
+    im.onload = function(){ photoCache.set(m.image_url, { w: im.naturalWidth, h: im.naturalHeight }); then(); };
+    im.onerror = function(){ photoCache.set(m.image_url, 'error'); then(); };
+    im.src = m.image_url;
+  }
+  return false;
+}
+
 function buildCard(m, fresh){
   var len = String(m.body).length, tier = tierFor(len), k = scale();
+  var ph = m.image_url && photoCache.get(m.image_url);
+  if (ph === 'error' || ph === 'loading') ph = null;
   var el = document.createElement('div');
-  el.className = 'card c' + (hash(String(m.id)) % 6) + (fresh ? ' fresh' : '');
-  el.style.fontSize = (tier.fs * k) + 'px';
-  var mw = stage.clientWidth < 800 ? Math.min(0.88, tier.mw * 1.7) : tier.mw;   // 手機、直立平板上卡片放寬
-  el.style.maxWidth = (stage.clientWidth * mw) + 'px';
+  el.className = 'card c' + (hash(String(m.id)) % 6) + (fresh ? ' fresh' : '') + (ph ? ' has-photo' : '');
+  var W = stage.clientWidth, H = stage.clientHeight, narrow = W < 800;
+  if (ph){
+    // 圖文卡：固定寬度，字級比純文字卡小一級，讓照片當主角
+    var cw = W * (narrow ? 0.62 : 0.25);
+    el.style.width = cw + 'px';
+    el.style.fontSize = (Math.min(tier.fs, 23) * k) + 'px';
+  } else {
+    el.style.fontSize = (tier.fs * k) + 'px';
+    var mw = narrow ? Math.min(0.88, tier.mw * 1.7) : tier.mw;   // 手機、直立平板上卡片放寬
+    el.style.maxWidth = (W * mw) + 'px';
+  }
   el.style.visibility = 'hidden';
   var inner = document.createElement('div'); inner.className = 'card-in';
   inner.style.setProperty('--rot', rand(-2.2, 2.2).toFixed(2) + 'deg');
   inner.style.animationDuration = rand(6.5, 10).toFixed(1) + 's';
   inner.style.animationDelay = (-rand(0, 8)).toFixed(1) + 's';
   if (m.mood){ var mb = document.createElement('span'); mb.className = 'mood-b'; mb.textContent = m.mood; inner.appendChild(mb); }
+  if (ph){
+    var img = document.createElement('img'); img.className = 'photo'; img.alt = ''; img.src = m.image_url;
+    var iw = cw - 2 * 0.75 * parseFloat(el.style.fontSize);
+    img.style.height = Math.min(iw * ph.h / ph.w, H * 0.42) + 'px';   // 直式照片太高就裁切
+    inner.appendChild(img);
+  }
   var p = document.createElement('p'); p.className = 'body'; p.textContent = m.body; inner.appendChild(p);
   var who = document.createElement('div'); who.className = 'who';
   who.appendChild(document.createTextNode('— ' + (m.name || '一位來賓')));
@@ -959,6 +1066,7 @@ function coverage(){
 
 function showMessage(m, fresh){
   if (visible.some(function(v){ return v.m.id === m.id; })) return false;
+  if (m.image_url && !photoReady(m, function(){ if (Store.messages.has(m.id)) showMessage(m, fresh); })) return false;
   var el = buildCard(m, fresh);
   stage.appendChild(el);
   var w = el.offsetWidth, h = el.offsetHeight;
@@ -1196,6 +1304,11 @@ function openMenu(m, ev){
   var menu = document.createElement('div'); menu.className = 'menu'; menu.id = 'menu';
   var del = document.createElement('button'); del.className = 'danger'; del.textContent = '從牆上移除這則';
   var cancel = document.createElement('button'); cancel.textContent = '取消';
+  if (m.image_url){
+    var zoom = document.createElement('button'); zoom.textContent = '放大照片';
+    zoom.onclick = function(){ closeMenu(); bigPhoto(m); };
+    menu.append(zoom);
+  }
   menu.append(del, cancel);
   document.body.appendChild(menu);
   menu.style.left = clamp(ev.clientX - 80, 8, innerWidth - menu.offsetWidth - 8) + 'px';
@@ -1205,6 +1318,15 @@ function openMenu(m, ev){
     api.hide(m.id).catch(function(e){ alert('移除失敗：' + (e.message || e)); });
   };
   cancel.onclick = closeMenu;
+}
+function bigPhoto(m){
+  var d = document.createElement('div'); d.className = 'photo-big';
+  var box = document.createElement('div');
+  var img = document.createElement('img'); img.src = m.image_url; img.alt = '';
+  var cap = document.createElement('p'); cap.textContent = m.body + '　— ' + (m.name || '一位來賓');
+  box.append(img, cap); d.appendChild(box);
+  d.onclick = function(){ d.remove(); };
+  document.body.appendChild(d);
 }
 function closeMenu(){ var x = $('menu'); if (x) x.remove(); }
 document.addEventListener('click', closeMenu);
@@ -1261,7 +1383,9 @@ function startDemo(){
     tick++;
     if (tick % 9 === 0){
       var L = DEMO_LINES[demoLine++ % DEMO_LINES.length];
-      acceptMessage({ id: demoId--, body: L[0], keyword: L[1], mood: L[2], name: L[3], created_at: new Date().toISOString() }, true);
+      var dm = { id: demoId--, body: L[0], keyword: L[1], mood: L[2], name: L[3], created_at: new Date().toISOString() };
+      if (demoLine % 3 === 1) dm.image_url = demoPhoto(L[2], demoLine);
+      acceptMessage(dm, true);
     }
     var e = MOODS[Math.floor(Math.random() * MOODS.length)].e;
     if (Math.random() < 0.6){
@@ -1272,6 +1396,20 @@ function startDemo(){
   }, 450);
   demoClock = setInterval(paintDemoBtn, 1000);
   paintDemoBtn();
+}
+
+function demoPhoto(emoji, seed){
+  var pal = [['#F4C9A8', '#E58AA0'], ['#BFD8C6', '#6FA58C'], ['#C9D9EC', '#7C9CC8'], ['#F3E0A2', '#E0A526']][seed % 4];
+  var portrait = seed % 2 === 0, cv = document.createElement('canvas');
+  cv.width = portrait ? 480 : 640; cv.height = portrait ? 600 : 440;
+  var g = cv.getContext('2d'), gr = g.createLinearGradient(0, 0, cv.width, cv.height);
+  gr.addColorStop(0, pal[0]); gr.addColorStop(1, pal[1]);
+  g.fillStyle = gr; g.fillRect(0, 0, cv.width, cv.height);
+  g.globalAlpha = .25; g.fillStyle = '#fff';
+  for (var i = 0; i < 6; i++){ g.beginPath(); g.arc(rand(0, cv.width), rand(0, cv.height), rand(30, 120), 0, 7); g.fill(); }
+  g.globalAlpha = 1; g.font = '180px serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(emoji, cv.width / 2, cv.height / 2);
+  return cv.toDataURL('image/jpeg', 0.8);
 }
 
 function stopDemo(){
@@ -1499,7 +1637,7 @@ async function fetchAllMessages(){
   }
   var all = [], page = 0, SIZE = 1000;
   while (true){
-    var r = await sb.from('wall_messages').select('id,name,body,mood,keyword,hidden,created_at')
+    var r = await sb.from('wall_messages').select('*')
       .eq('room', ROOM).order('id').range(page * SIZE, page * SIZE + SIZE - 1);
     if (r.error) throw r.error;
     all = all.concat(r.data);
@@ -1516,10 +1654,12 @@ async function exportExcel(){
     if (!rows.length){ alert('目前還沒有留言可以下載'); return; }
     var moodName = {}; MOODS.forEach(function(m){ moodName[m.e] = m.t; });
 
-    var msgSheet = [['序號', '送出時間', '姓名', '留言內容', '心情', '心情說明', '關鍵詞', '狀態']];
+    var msgSheet = [['序號', '送出時間', '姓名', '留言內容', '心情', '心情說明', '關鍵詞', '照片', '狀態']];
     rows.forEach(function(m, i){
       msgSheet.push([i + 1, localTime(m.created_at), m.name || '', m.body, m.mood || '',
-                     moodName[m.mood] || '', m.keyword || '', m.hidden ? '已從牆上移除' : '顯示中']);
+                     moodName[m.mood] || '', m.keyword || '',
+                     m.image_url && !/^data:/.test(m.image_url) ? m.image_url : (m.image_url ? '（示範照片）' : ''),
+                     m.hidden ? '已從牆上移除' : '顯示中']);
     });
 
     var wordSheet = [['名次', '關鍵詞', '出現次數']];
