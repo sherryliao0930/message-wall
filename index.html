@@ -1039,11 +1039,11 @@ function rain(emoji, n){
   setTimeout(emojiTick, wait);
 })();
 
-/* 0.75 倍（很少人按）到 2.1 倍（全場第一名） */
+/* 0.8 倍（很少人按）到 1.45 倍（全場第一名）——差距保留，但不要大到滿版都是 emoji */
 function sizeFor(emoji){
   var max = 0; MOODS.forEach(function(m){ max = Math.max(max, Store.totals[m.e] || 0); });
   var t = max ? (Store.totals[emoji] || 0) / max : 0;
-  return 0.75 + 1.35 * Math.sqrt(t);
+  return 0.8 + 0.65 * Math.sqrt(t);
 }
 
 function placeSticker(emoji){
@@ -1051,7 +1051,7 @@ function placeSticker(emoji){
   var k = scale() * sizeFor(emoji) * rand(0.92, 1.08);
   var el = document.createElement('div');
   el.className = 'sticker';
-  el.style.fontSize = (24 * k) + 'px';
+  el.style.fontSize = (16 * k) + 'px';
   el.innerHTML = '<span class="e"></span>';
   el.querySelector('.e').textContent = emoji;
   el.style.visibility = 'hidden';
