@@ -1051,7 +1051,7 @@ function placeSticker(emoji){
   var k = scale() * sizeFor(emoji) * rand(0.92, 1.08);
   var el = document.createElement('div');
   el.className = 'sticker';
-  el.style.fontSize = (16 * k) + 'px';
+  el.style.fontSize = (20 * k) + 'px';
   el.innerHTML = '<span class="e"></span>';
   el.querySelector('.e').textContent = emoji;
   el.style.visibility = 'hidden';
@@ -1225,8 +1225,8 @@ function initTools(){
   $('tExcel').onclick = exportExcel;
   $('tImg').onclick = exportCloudImage;
   $('tThanks').onclick = function(){ var top = topEmoji(); celebrate(top.e, top.n, true); };
-  $('tDemo').onclick = function(){ toggleDemo(); this.classList.toggle('on', !!demoTimer); };
-  if (P.has('demo')){ toggleDemo(); $('tDemo').classList.add('on'); }
+  $('tDemo').onclick = toggleDemo;
+  if (P.has('demo')) startDemo();
 }
 
 /* 示範動畫：只在這台螢幕上模擬來賓，不會寫進資料庫 */
@@ -1247,9 +1247,16 @@ var DEMO_LINES = [
   ['謝謝你們讓社區這麼有溫度', '溫暖', '😘', 'Amy'],
   ['下次還要再來', '期待', '🤩', '王媽媽']
 ];
+/* 示範播 3 分鐘自動停止；停止時把假留言、假心情次數全部收掉，牆面回到真實狀態 */
+var DEMO_SECONDS = 180, demoEnds = 0, demoClock = 0, demoTotals = {};
+
 function toggleDemo(){
-  if (demoTimer){ clearInterval(demoTimer); demoTimer = 0; return; }
+  if (demoTimer) stopDemo(); else startDemo();
+}
+
+function startDemo(){
   var tick = 0;
+  demoEnds = Date.now() + DEMO_SECONDS * 1000;
   demoTimer = setInterval(function(){
     tick++;
     if (tick % 9 === 0){
@@ -1257,8 +1264,35 @@ function toggleDemo(){
       acceptMessage({ id: demoId--, body: L[0], keyword: L[1], mood: L[2], name: L[3], created_at: new Date().toISOString() }, true);
     }
     var e = MOODS[Math.floor(Math.random() * MOODS.length)].e;
-    if (Math.random() < 0.6) acceptReaction(e, Math.ceil(rand(1, tick % 40 < 6 ? 30 : 6)));
+    if (Math.random() < 0.6){
+      var n = Math.ceil(rand(1, tick % 40 < 6 ? 30 : 6));
+      demoTotals[e] = (demoTotals[e] || 0) + n;
+      acceptReaction(e, n);
+    }
   }, 450);
+  demoClock = setInterval(paintDemoBtn, 1000);
+  paintDemoBtn();
+}
+
+function stopDemo(){
+  clearInterval(demoTimer); clearInterval(demoClock); demoTimer = 0; demoClock = 0;
+  // 收掉假留言（示範用的 id 都是負數）
+  Array.from(Store.messages.keys()).forEach(function(id){ if (id < 0) acceptHide(id); });
+  // 扣回示範加上去的心情次數，並清掉還在排隊的 emoji
+  Object.keys(demoTotals).forEach(function(e){ Store.totals[e] = Math.max(0, (Store.totals[e] || 0) - demoTotals[e]); });
+  demoTotals = {};
+  emojiQueue.length = 0; celebrateQueue.length = 0;
+  syncMilestones(); updateMeters(); updateStats();
+  paintDemoBtn();
+}
+
+function paintDemoBtn(){
+  var btn = $('tDemo');
+  if (!demoTimer){ btn.textContent = '示範動畫'; btn.classList.remove('on'); return; }
+  var left = Math.max(0, Math.ceil((demoEnds - Date.now()) / 1000));
+  if (!left){ stopDemo(); return; }
+  btn.textContent = '示範中 ' + Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0') + '（點一下停止）';
+  btn.classList.add('on');
 }
 // 示範用的負數 id 要排在最後，輪播才不會亂序
 Store.sorted = function(){
